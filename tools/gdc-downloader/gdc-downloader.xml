@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<tool
+    id="gdc_downloader"
+    name="GDC Data Downloader"
+    version="0.0.1"
+    hidden="false"
+    profile="26.1"
+/>
+    <description>Acquire data from the NCI Genomic Data Commons</description>
+    <command><![CDATA[
+        mkdir ./downloads &&
+        gdc-client download -m $manifest_file  -t <(printf '%s' "\$GDC_TOKEN") -d ./downloads &&
+        rm -rf ./downloads/*/logs
+    ]]></command>
+    <requirements>
+        <container type="docker">quay.io/goeckslab/gdc-client:2.3</container>
+        <credentials
+            name="gdc_auth"
+            version="1.0"
+            optional="true"
+            label="GDC credentials"
+            description="Used when acquiring protected datasets you are authorized to access"
+        >
+            <secret
+                name="gdc_token"
+                inject_as_env="GDC_AUTH_TOKEN"
+                label="Authorization token"
+                description="Acquired from the GDC portal"
+            />
+        </credentials>
+    </requirements>
+    <inputs>
+        <param
+            name="manifest_file"
+            type="data"
+            format="txt"
+            label="Manifest file downloaded from GDC"
+        />
+    </inputs>
+    <outputs>
+        <collection name="gdc_files" type="list" label="GDC files from manifest">
+            <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" visible="true" />
+        </collection>
+    </outputs>
+</tool>
