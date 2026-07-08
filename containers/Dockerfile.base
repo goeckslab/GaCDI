@@ -1,0 +1,25 @@
+# GaCDI shared base image: Python + the gacdi core package. No DB-specific
+# binaries. Per-tool images (gacdi-gdc/geo/sra) extend this layer.
+#
+# Build from the repository root:
+#   docker build -f containers/Dockerfile.base -t gacdi-base:dev .
+FROM mambaorg/micromamba:1.5.8
+
+LABEL org.opencontainers.image.title="gacdi-base" \
+      org.opencontainers.image.description="GaCDI shared runtime (Python + gacdi core)" \
+      org.opencontainers.image.source="https://github.com/paulocilasjr/GaCDI"
+
+USER root
+
+# 1. Base conda environment (python + requests).
+COPY containers/env/base.yml /tmp/base.yml
+RUN micromamba install -y -n base -f /tmp/base.yml && micromamba clean -a -y
+
+# 2. Install the gacdi package from source into the base env.
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+COPY pyproject.toml README.md LICENSE /opt/gacdi/
+COPY gacdi /opt/gacdi/gacdi
+RUN python -m pip install --no-cache-dir /opt/gacdi && python -c "import gacdi; print(gacdi.__version__)"
+
+ENV PATH=/opt/conda/bin:$PATH
+USER $MAMBA_USER

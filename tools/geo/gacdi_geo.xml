@@ -1,0 +1,56 @@
+<tool id="gacdi_geo" name="GaCDI GEO" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>import supplementary files from NCBI Gene Expression Omnibus</description>
+    <macros>
+        <import>../macros.xml</import>
+    </macros>
+    <expand macro="gacdi_requirements" container="gacdi-geo">
+        <requirement type="package" version="@ENTREZ_VERSION@">entrez-direct</requirement>
+    </expand>
+    <command detect_errors="exit_code"><![CDATA[
+        @CMD_PREAMBLE@
+        gacdi geo
+            --input-mode 'accession'
+            --accessions '$accessions'
+            @COMMON_ARGS@
+    ]]></command>
+    <inputs>
+        <param name="accessions" type="text" area="true" label="GEO accession(s)"
+               help="One or more GSE/GSM accessions, separated by commas, spaces or new lines (e.g. GSE12345, GSM67890). Supplementary files for each accession are downloaded.">
+            <sanitizer invalid_char="">
+                <valid initial="string.ascii_letters,string.digits">
+                    <add value=","/>
+                    <add value=" "/>
+                    <add value="&#10;"/>
+                </valid>
+            </sanitizer>
+            <validator type="regex" message="Enter GSE/GSM accessions separated by commas, spaces or new lines.">^[GgSsMmEe0-9,\s]+$</validator>
+        </param>
+        <expand macro="advanced_options"/>
+    </inputs>
+    <expand macro="outputs"/>
+    <tests>
+        <test>
+            <param name="accessions" value="GSE12345"/>
+            <section name="advanced">
+                <param name="dry_run" value="true"/>
+            </section>
+            <output name="summary">
+                <assert_contents>
+                    <has_text text="database"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI — Gene Expression Omnibus (GEO) importer**
+
+Downloads the supplementary files associated with one or more
+`GEO <https://www.ncbi.nlm.nih.gov/geo/>`_ accessions (series ``GSE`` or samples
+``GSM``) into your Galaxy history.
+
+Enter accessions separated by commas, spaces or new lines. For each accession the
+tool enumerates the files under its NCBI ``suppl/`` directory and downloads them.
+@HELP_FOOTER@
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

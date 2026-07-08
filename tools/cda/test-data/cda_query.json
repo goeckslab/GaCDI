@@ -1,0 +1,5 @@
+{
+  "table": "file",
+  "match_all": ["file_format = BAM"],
+  "limit": 5
+}

@@ -1,0 +1,79 @@
+<tool id="gacdi_gdc" name="GaCDI GDC" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>import datasets from the NCI Genomic Data Commons</description>
+    <macros>
+        <import>../macros.xml</import>
+    </macros>
+    <expand macro="gacdi_requirements" container="gacdi-gdc">
+        <requirement type="package" version="@GDC_VERSION@">gdc-client</requirement>
+    </expand>
+    <command detect_errors="exit_code"><![CDATA[
+        @CMD_PREAMBLE@
+        gacdi gdc
+            --input-mode '$input.mode'
+            #if $input.mode == 'manifest'
+                --manifest '$input.manifest'
+            #else
+                --query-json '$input.query_json'
+            #end if
+            @TOKEN_ARG@
+            @COMMON_ARGS@
+    ]]></command>
+    <inputs>
+        <conditional name="input">
+            <param name="mode" type="select" label="Selection source">
+                <option value="manifest">GDC manifest file (from the portal cart)</option>
+                <option value="query">GDC API query (JSON filters)</option>
+            </param>
+            <when value="manifest">
+                <param name="manifest" type="data" format="tabular,txt" label="GDC manifest"
+                       help="A manifest exported from the GDC Data Portal (columns: id, filename, md5, size, state)."/>
+            </when>
+            <when value="query">
+                <param name="query_json" type="data" format="json,txt" label="GDC query JSON"
+                       help="A JSON document containing a GDC 'filters' object for the files endpoint. May also set 'size' and 'fields'."/>
+            </when>
+        </conditional>
+        <expand macro="token_input"/>
+        <expand macro="advanced_options"/>
+    </inputs>
+    <expand macro="outputs"/>
+    <tests>
+        <!-- Dry run: resolves the manifest without contacting GDC or needing gdc-client. -->
+        <test>
+            <conditional name="input">
+                <param name="mode" value="manifest"/>
+                <param name="manifest" value="gdc_manifest.txt"/>
+            </conditional>
+            <section name="advanced">
+                <param name="dry_run" value="true"/>
+            </section>
+            <output name="summary">
+                <assert_contents>
+                    <has_text text="sample.bam"/>
+                    <has_text text="planned"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI — Genomic Data Commons (GDC) importer**
+
+Downloads files from the NCI `Genomic Data Commons <https://gdc.cancer.gov/>`_
+into your Galaxy history using the official ``gdc-client``.
+
+**Selection source**
+
+- *GDC manifest file* — export a manifest from your cart on the
+  `GDC Data Portal <https://portal.gdc.cancer.gov/>`_ and upload it here.
+- *GDC API query (JSON filters)* — provide a JSON document with a ``filters``
+  object; matching files are enumerated from the GDC REST API and downloaded.
+
+**Controlled access**
+
+For controlled-access files, upload your GDC download token and select it in
+*Controlled-access token file*. Downloaded controlled data and the token dataset
+must be handled in accordance with your Data Use Agreement.
+@HELP_FOOTER@
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

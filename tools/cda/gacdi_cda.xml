@@ -1,0 +1,55 @@
+<tool id="gacdi_cda" name="GaCDI CDA" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>search the Cancer Data Aggregator across NCI data commons</description>
+    <macros>
+        <import>../macros.xml</import>
+    </macros>
+    <expand macro="gacdi_requirements" container="gacdi-cda"/>
+    <command detect_errors="exit_code"><![CDATA[
+        @CMD_PREAMBLE@
+        gacdi cda
+            --input-mode 'query'
+            --query-json '$query_json'
+            @COMMON_ARGS@
+    ]]></command>
+    <inputs>
+        <param name="query_json" type="data" format="json,txt" label="CDA query (JSON)"
+               help='Keyword arguments for cdapython fetch_rows, e.g. {"table": "file", "match_all": ["file_format = BAM", "primary_diagnosis_site = lung"]}.'/>
+        <expand macro="advanced_options"/>
+    </inputs>
+    <expand macro="outputs"/>
+    <tests>
+        <!-- Live test: requires cdapython + network; run with `planemo test`. -->
+        <test>
+            <param name="query_json" value="cda_query.json"/>
+            <section name="advanced">
+                <param name="dry_run" value="true"/>
+            </section>
+            <output name="summary">
+                <assert_contents>
+                    <has_text text="database"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI — Cancer Data Aggregator (CDA) importer**
+
+`CDA <https://datacommons.cancer.gov/>`_ searches across NCI data commons
+(GDC, PDC, IDC, CDS) from one place. This tool runs a CDA ``file`` query and
+produces a **manifest/metadata table** describing every matching file — the
+owning commons, identifier, size, checksum and DRS URI.
+
+Use that table to retrieve the actual data with the matching GaCDI importer
+(e.g. **GaCDI GDC** with the listed ``file_id``). Files exposing a direct
+download URL are additionally fetched into the collection.
+
+**Query format**
+
+Provide a JSON object of keyword arguments for cdapython's ``fetch_rows``::
+
+    {"table": "file", "match_all": ["file_format = BAM"]}
+
+@HELP_FOOTER@
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

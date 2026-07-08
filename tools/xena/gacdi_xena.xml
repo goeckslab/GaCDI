@@ -1,0 +1,94 @@
+<tool id="gacdi_xena" name="GaCDI Xena" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>import public cancer datasets from UCSC Xena hubs</description>
+    <macros>
+        <import>../macros.xml</import>
+    </macros>
+    <expand macro="gacdi_requirements" container="gacdi-base"/>
+    <command detect_errors="exit_code"><![CDATA[
+        @CMD_PREAMBLE@
+        gacdi xena
+            --input-mode '$input.mode'
+            #if $input.mode == 'accession'
+                --accessions '$input.datasets'
+                --set 'hub=$input.hub'
+            #else
+                --query-json '$input.query_json'
+            #end if
+            @COMMON_ARGS@
+    ]]></command>
+    <inputs>
+        <conditional name="input">
+            <param name="mode" type="select" label="Selection source">
+                <option value="accession">Hub URL + dataset name(s)</option>
+                <option value="query">Query JSON (hub + datasets)</option>
+            </param>
+            <when value="accession">
+                <param name="hub" type="text" value="https://tcga.xenahubs.net" label="Xena hub URL"
+                       help="e.g. https://tcga.xenahubs.net or https://toil.xenahubs.net. Find hubs and datasets at https://xenabrowser.net/datapages/.">
+                    <sanitizer>
+                        <valid initial="string.ascii_letters,string.digits">
+                            <add value=":"/>
+                            <add value="/"/>
+                            <add value="."/>
+                            <add value="-"/>
+                            <add value="_"/>
+                        </valid>
+                    </sanitizer>
+                    <validator type="regex" message="Enter a valid http(s) hub URL.">^https?://[A-Za-z0-9._/-]+$</validator>
+                </param>
+                <param name="datasets" type="text" area="true" label="Dataset ID(s)"
+                       help="One or more Xena dataset identifiers, separated by commas, spaces or new lines (e.g. TCGA.BRCA.sampleMap/HiSeqV2).">
+                    <sanitizer>
+                        <valid initial="string.ascii_letters,string.digits">
+                            <add value="/"/>
+                            <add value="."/>
+                            <add value="-"/>
+                            <add value="_"/>
+                            <add value=","/>
+                            <add value=" "/>
+                            <add value="&#10;"/>
+                        </valid>
+                    </sanitizer>
+                </param>
+            </when>
+            <when value="query">
+                <param name="query_json" type="data" format="json,txt" label="Xena query JSON"
+                       help='A JSON object: {"hub": "https://tcga.xenahubs.net", "datasets": ["TCGA.BRCA.sampleMap/HiSeqV2"]}.'/>
+            </when>
+        </conditional>
+        <expand macro="advanced_options"/>
+    </inputs>
+    <expand macro="outputs"/>
+    <tests>
+        <!-- Dry run: builds the download URLs without contacting the hub. -->
+        <test>
+            <conditional name="input">
+                <param name="mode" value="accession"/>
+                <param name="hub" value="https://tcga.xenahubs.net"/>
+                <param name="datasets" value="TCGA.BRCA.sampleMap/HiSeqV2"/>
+            </conditional>
+            <section name="advanced">
+                <param name="dry_run" value="true"/>
+            </section>
+            <output name="summary">
+                <assert_contents>
+                    <has_text text="HiSeqV2"/>
+                    <has_text text="planned"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI — UCSC Xena importer**
+
+Downloads full dataset matrices from a `UCSC Xena <https://xena.ucsc.edu/public/>`_
+data hub into your Galaxy history.
+
+Provide the **hub URL** and one or more **dataset IDs** (browse them at
+`Xena datapages <https://xenabrowser.net/datapages/>`_), or a **query JSON**
+listing a hub and datasets. Each dataset is fetched from ``<hub>/download/<dataset>``
+(falling back to the gzip-compressed variant).
+@HELP_FOOTER@
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

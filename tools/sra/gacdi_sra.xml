@@ -1,0 +1,60 @@
+<tool id="gacdi_sra" name="GaCDI SRA" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>import sequencing runs from the NCBI Sequence Read Archive</description>
+    <macros>
+        <import>../macros.xml</import>
+    </macros>
+    <expand macro="gacdi_requirements" container="gacdi-sra">
+        <requirement type="package" version="@SRA_VERSION@">sra-tools</requirement>
+    </expand>
+    <command detect_errors="exit_code"><![CDATA[
+        @CMD_PREAMBLE@
+        gacdi sra
+            --input-mode 'accession'
+            --accessions '$accessions'
+            @COMMON_ARGS@
+    ]]></command>
+    <inputs>
+        <param name="accessions" type="text" area="true" label="SRA accession(s)"
+               help="One or more run accessions (e.g. SRR000001, ERR1234567), separated by commas, spaces or new lines. Each run is fetched with prefetch and converted to gzip-compressed FASTQ.">
+            <sanitizer invalid_char="">
+                <valid initial="string.ascii_letters,string.digits">
+                    <add value=","/>
+                    <add value=" "/>
+                    <add value="&#10;"/>
+                </valid>
+            </sanitizer>
+            <validator type="regex" message="Enter SRA accessions (e.g. SRR000001) separated by commas, spaces or new lines.">^[SsEeDdRrXxPpAa0-9,\s]+$</validator>
+        </param>
+        <expand macro="advanced_options"/>
+    </inputs>
+    <expand macro="outputs"/>
+    <tests>
+        <!-- Dry run: validates the accession without contacting SRA or needing sra-tools. -->
+        <test>
+            <param name="accessions" value="SRR000001"/>
+            <section name="advanced">
+                <param name="dry_run" value="true"/>
+            </section>
+            <output name="summary">
+                <assert_contents>
+                    <has_text text="SRR000001"/>
+                    <has_text text="planned"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI — Sequence Read Archive (SRA) importer**
+
+Downloads sequencing runs from the NCBI
+`SRA <https://www.ncbi.nlm.nih.gov/sra>`_ into your Galaxy history as
+gzip-compressed FASTQ files, using the ``sra-tools`` ``prefetch`` and
+``fasterq-dump`` utilities.
+
+Enter one or more run accessions (``SRR``/``ERR``/``DRR`` …) separated by commas,
+spaces or new lines. Paired-end runs produce ``_1``/``_2`` FASTQ files within the
+output collection.
+@HELP_FOOTER@
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

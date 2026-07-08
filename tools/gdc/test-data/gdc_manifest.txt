@@ -1,0 +1,3 @@
+id	filename	md5	size	state
+0001-aaaa-bbbb-cccc	sample.bam	d41d8cd98f00b204e9800998ecf8427e	1024	released
+0002-dddd-eeee-ffff	sample.vcf.gz	0cc175b9c0f1b6a831c399e269772661	2048	released

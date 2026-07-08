@@ -1,0 +1,120 @@
+<macros>
+    <!-- ===== Version tokens (keep in sync with pyproject.toml and containers/) ===== -->
+    <token name="@TOOL_VERSION@">0.1.0</token>
+    <token name="@VERSION_SUFFIX@">0</token>
+    <token name="@PROFILE@">22.05</token>
+    <!-- Quay namespace that hosts the runtime images. Placeholder — confirm before publishing. -->
+    <token name="@QUAY_ORG@">paulocilasjr</token>
+    <!-- Conda fallback versions -->
+    <token name="@GDC_VERSION@">2.3</token>
+    <token name="@SRA_VERSION@">3.1.1</token>
+    <token name="@ENTREZ_VERSION@">22.4</token>
+
+    <!-- ===== Requirements: pinned container (primary) + Conda fallback ===== -->
+    <!--
+      `container` is the per-tool image name (gacdi-gdc / gacdi-geo / gacdi-sra).
+      Extra <requirement> elements for the DB-specific binary are passed via yield.
+    -->
+    <xml name="gacdi_requirements" token_container="gacdi-base">
+        <requirements>
+            <requirement type="package" version="@TOOL_VERSION@">gacdi</requirement>
+            <yield/>
+            <container type="docker">quay.io/@QUAY_ORG@/@CONTAINER@:@TOOL_VERSION@</container>
+        </requirements>
+    </xml>
+
+    <!-- ===== Shared command fragment: outputs + advanced behaviour ===== -->
+    <token name="@COMMON_ARGS@"><![CDATA[
+        --output-dir 'downloads'
+        --summary '$summary'
+        --retries $advanced.retries
+        #if str($advanced.max_files) != '':
+            --max-files $advanced.max_files
+        #end if
+        #if str($advanced.max_bytes) != '':
+            --max-bytes $advanced.max_bytes
+        #end if
+        #if $advanced.dry_run:
+            --dry-run
+        #end if
+        #if $advanced.continue_on_error:
+            --continue-on-error
+        #end if
+        --jobs "\${GALAXY_SLOTS:-1}"
+    ]]></token>
+
+    <token name="@CMD_PREAMBLE@"><![CDATA[
+        mkdir -p downloads &&
+    ]]></token>
+
+    <!-- ===== Reusable input fragments ===== -->
+    <xml name="advanced_options">
+        <section name="advanced" title="Advanced options" expanded="false">
+            <param name="max_files" type="integer" min="1" optional="true" value=""
+                   label="Maximum number of files"
+                   help="Stop after downloading this many files. Leave blank for no limit."/>
+            <param name="max_bytes" type="integer" min="1" optional="true" value=""
+                   label="Approximate size budget (bytes)"
+                   help="Stop once the cumulative download size exceeds this. Leave blank for no limit."/>
+            <param name="retries" type="integer" min="0" value="3" label="Retries per file"/>
+            <param name="dry_run" type="boolean" checked="false" truevalue="true" falsevalue=""
+                   label="Dry run"
+                   help="Resolve the selection and report what would be downloaded, without downloading."/>
+            <param name="continue_on_error" type="boolean" checked="false" truevalue="true" falsevalue=""
+                   label="Continue on error"
+                   help="Succeed even if some files fail; failures are still recorded in the summary."/>
+        </section>
+    </xml>
+
+    <xml name="token_input">
+        <param name="token" type="data" format="txt" optional="true"
+               label="Controlled-access token file"
+               help="Optional. Upload your download token to fetch controlled-access files. The token dataset persists in your history — handle it in accordance with the repository's Data Use Agreement."/>
+    </xml>
+
+    <token name="@TOKEN_ARG@"><![CDATA[
+        #if $token:
+            --token '$token'
+        #end if
+    ]]></token>
+
+    <!-- ===== Shared outputs: list collection + summary table ===== -->
+    <xml name="outputs">
+        <outputs>
+            <collection name="downloaded" type="list" label="${tool.name} on ${on_string}: downloaded files">
+                <discover_datasets pattern="__name_and_ext__" directory="downloads" visible="false"/>
+            </collection>
+            <data name="summary" format="tabular" label="${tool.name} on ${on_string}: summary"/>
+        </outputs>
+    </xml>
+
+    <!-- ===== Boilerplate ===== -->
+    <xml name="citations">
+        <citations>
+            <citation type="bibtex"><![CDATA[
+@misc{gacdi,
+  title  = {GaCDI: Galaxy Cancer Data Importers},
+  author = {GaCDI contributors},
+  url    = {https://github.com/paulocilasjr/GaCDI}
+}
+            ]]></citation>
+            <yield/>
+        </citations>
+    </xml>
+
+    <token name="@HELP_FOOTER@"><![CDATA[
+
+**Outputs**
+
+- A **dataset collection** containing every downloaded file, ready to feed into
+  downstream Galaxy tools and workflows.
+- A **summary** table (one row per file) listing the identifier, filename,
+  status, size, checksum and source.
+
+**Notes**
+
+- Downloads are streamed with retries and checksum verification where the
+  repository publishes checksums.
+- Use *Advanced options → Dry run* to preview the selection before downloading.
+    ]]></token>
+</macros>

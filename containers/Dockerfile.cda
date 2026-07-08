@@ -1,0 +1,13 @@
+# GaCDI CDA runtime: base image + cdapython (from PyPI).
+#   docker build -f containers/Dockerfile.cda \
+#     --build-arg BASE_IMAGE=gacdi-base:dev -t gacdi-cda:dev .
+ARG BASE_IMAGE=quay.io/paulocilasjr/gacdi-base:0.1.0
+FROM ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="gacdi-cda" \
+      org.opencontainers.image.description="GaCDI CDA importer runtime (gacdi + cdapython)"
+
+USER root
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+RUN python -m pip install --no-cache-dir cdapython
+USER $MAMBA_USER
