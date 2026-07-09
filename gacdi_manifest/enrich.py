@@ -62,7 +62,7 @@ def collect(
         attr_ids = None
         if cbioportal_attrs and cbioportal_attrs.strip().lower() != "all":
             attr_ids = [a.strip() for a in cbioportal_attrs.split(",") if a.strip()]
-        data, cols = cbioportal.fetch_sample_clinical(
+        data, cols = cbioportal.fetch_clinical(
             session, cbioportal_study, attribute_ids=attr_ids, base=cbioportal_base
         )
         merge(data, cols)

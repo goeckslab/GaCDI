@@ -23,12 +23,23 @@ def test_write_metadata_columns(tmp_path):
 
 
 def test_write_report(tmp_path):
+    merged = [
+        {"file_id": "uuid1", "size": "100", "data_type": "Slide Image", "galaxy_ext": "svs",
+         "matched": "yes", "sample_barcode": "TCGA-A-1-01"},
+        {"file_id": "uuid2", "size": "200", "data_type": "Slide Image", "galaxy_ext": "svs",
+         "matched": "no", "sample_barcode": "TCGA-B-2-01"},
+    ]
     report = JoinReport(total_files=2, matched_files=1, unmatched_files=["uuid2"])
     out = tmp_path / "r.tsv"
-    io.write_report(out, matched_total=2, report=report)
+    io.write_report(out, database_total=2, merged_rows=merged, report=report,
+                    enrichment_columns=["SUBTYPE"])
     text = out.read_text()
     assert "files_matched_to_annotation\t1" in text
-    assert "unmatched_file\tuuid2" in text
+    assert "annotation_match_rate\t50.0%" in text
+    assert "total_download_size" in text
+    assert "composition:data_type\tSlide Image\t2" in text
+    assert "annotation_columns_added\t1" in text
+    assert "unmatched_example\tTCGA-B-2-01" in text
 
 
 def test_read_annotation_tsv(tmp_path):

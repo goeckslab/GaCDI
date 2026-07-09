@@ -122,11 +122,12 @@ def _run_gdc(args: argparse.Namespace) -> int:
         facet_counts = gdc.facets(session, filters, PREVIEW_FACETS)
         io.write_manifest(args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
-        io.write_report(args.report_out, matched_total=total, facets=facet_counts)
+        io.write_report(args.report_out, database_total=total, facets=facet_counts)
         log.info("Preview: %d file(s) match the filters.", total)
         return 0
 
-    file_rows = gdc.query_files(session, filters, max_files=args.max_files)
+    total_matching = gdc.count(session, filters)
+    file_rows = gdc.query_files(session, filters, max_files=args.max_files, total=total_matching)
     # Drop rows without a file id: the GaCDI GDC importer skips empty-id manifest
     # rows, so excluding them keeps the manifest and metadata table aligned.
     dropped = [r for r in file_rows if not r.file_id]
@@ -152,7 +153,13 @@ def _run_gdc(args: argparse.Namespace) -> int:
     )
     io.write_manifest(args.manifest_out, file_rows)
     io.write_metadata(args.metadata_out, merged, ann_cols)
-    io.write_report(args.report_out, matched_total=len(file_rows), report=report)
+    io.write_report(
+        args.report_out,
+        database_total=total_matching,
+        merged_rows=merged,
+        report=report,
+        enrichment_columns=ann_cols,
+    )
     log.info(
         "Built manifest with %d file(s); %d matched to annotation, %d unmatched.",
         report.total_files,

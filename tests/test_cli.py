@@ -38,7 +38,8 @@ def test_full_build_with_annotation(tmp_path, gdc_api):
 
     report = (tmp_path / "r.tsv").read_text()
     assert "files_matched_to_annotation\t1" in report
-    assert "unmatched_file\tuuid2" in report
+    assert "total_download_size" in report
+    assert "unmatched_example\tTCGA-XX-YYYY-01A" in report
 
 
 def test_no_filters_exit_code(tmp_path):

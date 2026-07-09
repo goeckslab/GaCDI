@@ -88,9 +88,14 @@ def query_files(
     *,
     max_files: int | None = None,
     page_size: int = DEFAULT_PAGE_SIZE,
+    total: int | None = None,
 ) -> list[FileRow]:
-    """Fetch matching files (paged), up to *max_files*."""
-    total = count(session, filters)
+    """Fetch matching files (paged), up to *max_files*.
+
+    Pass *total* (from a prior :func:`count`) to avoid re-counting.
+    """
+    if total is None:
+        total = count(session, filters)
     log.info("GDC matched %d file(s).", total)
     limit = min(total, max_files) if max_files else total
     rows: list[FileRow] = []

@@ -1,3 +1,5 @@
+import json
+
 import requests
 
 from gacdi_manifest import cbioportal, gdc
@@ -21,21 +23,53 @@ def test_facets(gdc_api):
     assert f["data_type"]["Slide Image"] == 2
 
 
-def test_cbioportal_fetch(requests_mock):
+def test_cbioportal_merges_patient_and_sample(requests_mock):
+    """SUBTYPE/ER are patient-level; they must be merged onto each sample."""
     study = "brca_tcga"
     url = f"{cbioportal.DEFAULT_BASE}/studies/{study}/clinical-data"
-    requests_mock.get(
-        url,
-        json=[
-            {"sampleId": "TCGA-E9-A5FL-01", "clinicalAttributeId": "SUBTYPE", "value": "Basal"},
-            {"sampleId": "TCGA-E9-A5FL-01", "clinicalAttributeId": "ER_STATUS_BY_IHC", "value": "Negative"},
-        ],
-    )
-    data, cols = cbioportal.fetch_sample_clinical(
-        requests.Session(), study, attribute_ids=["SUBTYPE", "ER_STATUS_BY_IHC"]
-    )
-    assert data["TCGA-E9-A5FL-01"]["SUBTYPE"] == "Basal"
-    assert cols == ["SUBTYPE", "ER_STATUS_BY_IHC"]
+
+    def callback(request, context):
+        context.status_code = 200
+        kind = (request.qs.get("clinicaldatatype", [""])[0]).lower()
+        if kind == "sample":
+            return json.dumps([
+                {"sampleId": "TCGA-E9-A5FL-01", "patientId": "TCGA-E9-A5FL",
+                 "clinicalAttributeId": "CANCER_TYPE", "value": "Breast Cancer"},
+            ])
+        return json.dumps([
+            {"patientId": "TCGA-E9-A5FL", "clinicalAttributeId": "SUBTYPE", "value": "BRCA_Basal"},
+            {"patientId": "TCGA-E9-A5FL", "clinicalAttributeId": "ER_STATUS_BY_IHC", "value": "Negative"},
+        ])
+
+    requests_mock.get(url, text=callback)
+    data, cols = cbioportal.fetch_clinical(requests.Session(), study)
+    assert data["TCGA-E9-A5FL-01"]["SUBTYPE"] == "BRCA_Basal"
+    assert data["TCGA-E9-A5FL-01"]["ER_STATUS_BY_IHC"] == "Negative"
+    assert data["TCGA-E9-A5FL-01"]["CANCER_TYPE"] == "Breast Cancer"
+    assert set(cols) == {"CANCER_TYPE", "SUBTYPE", "ER_STATUS_BY_IHC"}
+
+
+def test_cbioportal_filter_attributes(requests_mock):
+    study = "brca_tcga"
+    url = f"{cbioportal.DEFAULT_BASE}/studies/{study}/clinical-data"
+
+    def callback(request, context):
+        context.status_code = 200
+        kind = (request.qs.get("clinicaldatatype", [""])[0]).lower()
+        if kind == "patient":
+            return json.dumps([
+                {"patientId": "TCGA-E9-A5FL", "clinicalAttributeId": "SUBTYPE", "value": "BRCA_Basal"},
+                {"patientId": "TCGA-E9-A5FL", "clinicalAttributeId": "AGE", "value": "61"},
+            ])
+        return json.dumps([
+            {"sampleId": "TCGA-E9-A5FL-01", "patientId": "TCGA-E9-A5FL",
+             "clinicalAttributeId": "CANCER_TYPE", "value": "Breast Cancer"},
+        ])
+
+    requests_mock.get(url, text=callback)
+    data, cols = cbioportal.fetch_clinical(requests.Session(), study, attribute_ids=["SUBTYPE"])
+    assert cols == ["SUBTYPE"]
+    assert data["TCGA-E9-A5FL-01"] == {"SUBTYPE": "BRCA_Basal"}
 
 
 def test_cbioportal_list_attributes(requests_mock):

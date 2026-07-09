@@ -53,20 +53,20 @@
                 #end if
             #end if
             #if $adv.enrich.enable == 'yes'
-                #if str($adv.enrich.cbioportal_study).strip() != ''
-                    --cbioportal-study '$adv.enrich.cbioportal_study'
-                    #if str($adv.enrich.cbioportal_attrs).strip() != ''
-                        --cbioportal-attrs '$adv.enrich.cbioportal_attrs'
+                #if $adv.enrich.cbio.use == 'yes'
+                    --cbioportal-study '$adv.enrich.cbio.study'
+                    #if str($adv.enrich.cbio.attrs).strip() != ''
+                        --cbioportal-attrs '$adv.enrich.cbio.attrs'
                     #end if
                 #end if
-                #if $adv.enrich.annotation_tsv
-                    --annotation-tsv '$adv.enrich.annotation_tsv'
-                    --annotation-key-col '$adv.enrich.annotation_key_col'
+                #if $adv.enrich.table.use == 'yes'
+                    --annotation-tsv '$adv.enrich.table.tsv'
+                    --annotation-key-col '$adv.enrich.table.key_col'
                 #end if
-            #end if
-            --join-level '$adv.join_level'
-            #if not $adv.trim_vial
-                --no-trim-vial
+                --join-level '$adv.enrich.join_level'
+                #if not $adv.enrich.trim_vial
+                    --no-trim-vial
+                #end if
             #end if
             --manifest-out '$manifest'
             --metadata-out '$metadata'
@@ -154,6 +154,7 @@
                 <param name="field" type="text" value="" label="GDC field"
                        help="GDC field name, e.g. cases.samples.sample_type.">
                     <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
                 </param>
                 <param name="op" type="select" label="Match or exclude"
                        help="Keep files matching the values, or exclude them.">
@@ -163,6 +164,7 @@
                 <param name="values" type="text" value="" label="Value(s)"
                        help="Values to match, comma-separated.">
                     <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
                 </param>
             </repeat>
             <param name="raw_filters" type="data" format="json,txt" optional="true"
@@ -176,35 +178,56 @@
                 </param>
                 <when value="no"/>
                 <when value="yes">
-                    <param name="cbioportal_study" type="text" value="" optional="true"
-                           label="cBioPortal study id"
-                           help="Study to pull subtype/clinical attributes from, e.g. brca_tcga_pan_can_atlas_2018. Leave blank to skip.">
-                        <expand macro="safe_text"/>
+                    <conditional name="cbio">
+                        <param name="use" type="select" label="Add cBioPortal subtype/clinical columns?"
+                               help="Pulls curated per-sample attributes (e.g. PAM50 subtype, ER/PR/HER2 status) from one cBioPortal study.">
+                            <option value="no" selected="true">No</option>
+                            <option value="yes">Yes</option>
+                        </param>
+                        <when value="no"/>
+                        <when value="yes">
+                            <param name="study" type="text" value="" label="cBioPortal study id (required)"
+                                   help="Find it in the study URL at cbioportal.org (the id= part), e.g. brca_tcga_pan_can_atlas_2018 for TCGA-BRCA.">
+                                <expand macro="safe_text"/>
+                                <validator type="empty_field"/>
+                            </param>
+                            <param name="attrs" type="text" value="" optional="true"
+                                   label="Which attributes to add"
+                                   help="Comma-separated ids, e.g. SUBTYPE,ER_STATUS_BY_IHC,PR_STATUS_BY_IHC. Leave blank (or type 'all') for every attribute.">
+                                <expand macro="safe_text"/>
+                            </param>
+                        </when>
+                    </conditional>
+                    <conditional name="table">
+                        <param name="use" type="select" label="Merge your own annotation table?"
+                               help="Adds columns from a TSV you upload (e.g. histology labels not in any API), matched by barcode.">
+                            <option value="no" selected="true">No</option>
+                            <option value="yes">Yes</option>
+                        </param>
+                        <when value="no"/>
+                        <when value="yes">
+                            <param name="tsv" type="data" format="tabular,txt"
+                                   label="Annotation table (TSV, required)"
+                                   help="A per-sample table; one of its columns holds the barcode used for matching."/>
+                            <param name="key_col" type="text" value="sample"
+                                   label="Barcode column in your table (required)"
+                                   help="Name of the column holding the sample/patient barcode.">
+                                <expand macro="safe_text"/>
+                                <validator type="empty_field"/>
+                            </param>
+                        </when>
+                    </conditional>
+                    <param name="join_level" type="select" label="Annotation join level"
+                           help="How precisely annotations are matched to each file.">
+                        <option value="sample" selected="true">Sample (TCGA-XX-XXXX-01)</option>
+                        <option value="patient">Patient (TCGA-XX-XXXX)</option>
+                        <option value="full">Full barcode</option>
                     </param>
-                    <param name="cbioportal_attrs" type="text" value="" optional="true"
-                           label="cBioPortal attribute id(s)"
-                           help="Which attributes to add, e.g. SUBTYPE,ER_STATUS_BY_IHC — or 'all'.">
-                        <expand macro="safe_text"/>
-                    </param>
-                    <param name="annotation_tsv" type="data" format="tabular,txt" optional="true"
-                           label="Your annotation table (TSV)"
-                           help="Your own per-sample table to merge in, e.g. histology labels."/>
-                    <param name="annotation_key_col" type="text" value="sample"
-                           label="Barcode column in your table"
-                           help="Column holding the sample/patient barcode used to match rows.">
-                        <expand macro="safe_text"/>
-                    </param>
+                    <param name="trim_vial" type="boolean" checked="true" truevalue="true" falsevalue=""
+                           label="Treat 01A and 01 as the same sample"
+                           help="Ignore the vial letter when matching annotations (recommended)."/>
                 </when>
             </conditional>
-            <param name="join_level" type="select" label="Annotation join level"
-                   help="How precisely annotations are matched to each file.">
-                <option value="sample" selected="true">Sample (TCGA-XX-XXXX-01)</option>
-                <option value="patient">Patient (TCGA-XX-XXXX)</option>
-                <option value="full">Full barcode</option>
-            </param>
-            <param name="trim_vial" type="boolean" checked="true" truevalue="true" falsevalue=""
-                   label="Treat 01A and 01 as the same sample"
-                   help="Ignore the vial letter when matching annotations (recommended)."/>
             <param name="max_files" type="integer" value="" optional="true" min="1"
                    label="Maximum number of files"
                    help="Stop after this many files — handy for a quick test. Leave blank for all matches."/>
