@@ -9,6 +9,9 @@ jobs:
   pytest:
     name: Unit tests (gacdi_manifest)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli_tools/gacdi_manifest
     strategy:
       matrix:
         python-version: ["3.9", "3.11"]

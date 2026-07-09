@@ -6,6 +6,7 @@ import csv
 from collections import Counter
 from pathlib import Path
 
+from . import __version__
 from .join import JoinReport
 from .model import FileRow
 
@@ -100,6 +101,9 @@ def write_report(
 
     def add(category: str, key: str, value) -> None:
         rows.append((category, key, str(value)))
+
+    # Version stamp: lets you confirm which build of the tool actually ran.
+    add("summary", "gacdi_manifest_version", __version__)
 
     # --- summary -------------------------------------------------------
     if database_total is not None:

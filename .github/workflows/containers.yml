@@ -9,7 +9,8 @@ on:
 
 env:
   REGISTRY: quay.io
-  ORG: paulocilasjr
+  # Must match the <container> namespace in tools/manifest_gdc/macros.xml.
+  ORG: goeckslab
   VERSION: "0.1.0"
 
 jobs:
@@ -26,7 +27,7 @@ jobs:
       - name: Build & push
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: containers/Dockerfile.manifest
+          context: cli_tools/gacdi_manifest
+          file: cli_tools/gacdi_manifest/Dockerfile
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-manifest:${{ env.VERSION }}
