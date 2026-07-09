@@ -42,6 +42,27 @@ def test_full_build_with_annotation(tmp_path, gdc_api):
     assert "unmatched_example\tTCGA-XX-YYYY-01A" in report
 
 
+def test_no_matches_writes_note(tmp_path, requests_mock):
+    import json
+
+    from gacdi_manifest.gdc import FILES_ENDPOINT
+
+    def callback(request, context):
+        context.status_code = 200
+        if request.json().get("facets"):
+            return json.dumps({"data": {"aggregations": {}}})
+        return json.dumps({"data": {"pagination": {"total": 0}}})
+
+    requests_mock.post(FILES_ENDPOINT, text=callback)
+    rc = main(_args(tmp_path))
+    assert rc == 0
+    report = (tmp_path / "r.tsv").read_text()
+    assert "files_matching_filters\t0" in report
+    assert "no_files_matched" in report
+    # manifest is header-only, metadata too
+    assert (tmp_path / "m.txt").read_text().strip() == "id\tfilename\tmd5\tsize\tstate"
+
+
 def test_no_filters_exit_code(tmp_path):
     rc = main(["gdc", "--manifest-out", str(tmp_path / "m.txt"),
                "--metadata-out", str(tmp_path / "md.tsv"),

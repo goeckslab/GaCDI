@@ -136,6 +136,26 @@ def _run_gdc(args: argparse.Namespace) -> int:
     file_rows = [r for r in file_rows if r.file_id]
     # Deterministic order so the manifest is reproducible across runs (workflows).
     file_rows.sort(key=lambda r: r.file_id)
+
+    # No files matched: write empty, self-explanatory outputs and skip the
+    # (now pointless) annotation fetch/join.
+    if not file_rows:
+        io.write_manifest(args.manifest_out, [])
+        io.write_metadata(args.metadata_out, [], [])
+        io.write_report(
+            args.report_out,
+            database_total=total_matching,
+            extra=[(
+                "note",
+                "no_files_matched",
+                "No files matched your filters. Check that the filters are compatible — "
+                "e.g. Data format must match the Data type (Slide Image files are SVS, not TSV). "
+                "Try 'Preview counts only' while adjusting filters.",
+            )],
+        )
+        log.warning("No files matched the filters; wrote empty manifest and a note.")
+        return 0
+
     annotations, ann_cols = enrich.collect(
         session,
         cbioportal_study=args.cbioportal_study,
