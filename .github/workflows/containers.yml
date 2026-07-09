@@ -30,4 +30,6 @@ jobs:
           context: cli_tools/gacdi_manifest
           file: cli_tools/gacdi_manifest/Dockerfile
           push: true
+          build-args: |
+            GACDI_BUILD=${{ github.sha }}
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-manifest:${{ env.VERSION }}

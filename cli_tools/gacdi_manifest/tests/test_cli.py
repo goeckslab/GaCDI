@@ -11,6 +11,12 @@ def _args(tmp_path, *extra):
     ]
 
 
+def test_bad_cbioportal_study_fails_fast(tmp_path):
+    # A flag-in-value or spaces inside an id is rejected before any GDC query.
+    rc = main(_args(tmp_path, "--cbioportal-study", "cbioportal-study brca_tcga"))
+    assert rc == 2
+
+
 def test_count_only(tmp_path, gdc_api):
     rc = main(_args(tmp_path, "--count-only"))
     assert rc == 0

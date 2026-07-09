@@ -38,6 +38,11 @@ def read_annotation_tsv(path: str | Path, key_col: str) -> tuple[dict[str, dict]
     return annotations, columns
 
 
+def split_studies(value: str | None) -> list[str]:
+    """Split a comma-separated list of cBioPortal study ids."""
+    return [s.strip() for s in (value or "").split(",") if s.strip()]
+
+
 def collect(
     session: requests.Session,
     *,
@@ -47,7 +52,13 @@ def collect(
     annotation_tsv: str | None = None,
     annotation_key_col: str = "sample",
 ) -> tuple[dict[str, dict], list[str]]:
-    """Gather and merge all enrichment sources."""
+    """Gather and merge all enrichment sources into one annotation table.
+
+    ``cbioportal_study`` may name several studies (comma-separated); they are
+    fetched and merged in order. Columns are the union across sources; for a given
+    sample/attribute the first source with a non-empty value wins (so list the
+    highest-priority study first).
+    """
     annotations: dict[str, dict] = {}
     columns: list[str] = []
 
@@ -56,14 +67,19 @@ def collect(
             if c not in columns:
                 columns.append(c)
         for key, attrs in src.items():
-            annotations.setdefault(key, {}).update(attrs)
+            dest = annotations.setdefault(key, {})
+            for attr, value in attrs.items():
+                # First non-empty value wins; fill blanks from later sources.
+                if attr not in dest or (not str(dest[attr]).strip() and str(value).strip()):
+                    dest[attr] = value
 
-    if cbioportal_study:
-        attr_ids = None
-        if cbioportal_attrs and cbioportal_attrs.strip().lower() != "all":
-            attr_ids = [a.strip() for a in cbioportal_attrs.split(",") if a.strip()]
+    attr_ids = None
+    if cbioportal_attrs and cbioportal_attrs.strip().lower() != "all":
+        attr_ids = [a.strip() for a in cbioportal_attrs.split(",") if a.strip()]
+
+    for study in split_studies(cbioportal_study):
         data, cols = cbioportal.fetch_clinical(
-            session, cbioportal_study, attribute_ids=attr_ids, base=cbioportal_base
+            session, study, attribute_ids=attr_ids, base=cbioportal_base
         )
         merge(data, cols)
 

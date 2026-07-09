@@ -1,3 +1,5 @@
+import json
+
 import requests
 
 from gacdi_manifest import enrich, io
@@ -69,3 +71,55 @@ def test_collect_merges_sources(tmp_path, requests_mock):
     )
     assert data["TCGA-E9-A5FL-01"] == {"SUBTYPE": "Basal", "Histology": "IDC"}
     assert cols == ["SUBTYPE", "Histology"]
+
+
+def test_collect_merges_multiple_studies(requests_mock):
+    from gacdi_manifest import cbioportal
+
+    base = cbioportal.DEFAULT_BASE
+
+    def make_cb(sample_recs, patient_recs):
+        def cb(request, context):
+            context.status_code = 200
+            kind = (request.qs.get("clinicaldatatype", [""])[0]).lower()
+            return json.dumps(sample_recs if kind == "sample" else patient_recs)
+        return cb
+
+    # Study A contributes PAM50 SUBTYPE (patient level).
+    requests_mock.get(
+        f"{base}/studies/studyA/clinical-data",
+        text=make_cb(
+            [{"sampleId": "TCGA-A-1-01", "patientId": "TCGA-A-1", "clinicalAttributeId": "CANCER_TYPE", "value": "BRCA"}],
+            [{"patientId": "TCGA-A-1", "clinicalAttributeId": "SUBTYPE", "value": "BRCA_Basal"}],
+        ),
+    )
+    # Study B contributes ER status (patient level).
+    requests_mock.get(
+        f"{base}/studies/studyB/clinical-data",
+        text=make_cb(
+            [{"sampleId": "TCGA-A-1-01", "patientId": "TCGA-A-1", "clinicalAttributeId": "CANCER_TYPE", "value": "BRCA"}],
+            [{"patientId": "TCGA-A-1", "clinicalAttributeId": "ER_STATUS_BY_IHC", "value": "Positive"}],
+        ),
+    )
+
+    data, cols = enrich.collect(requests.Session(), cbioportal_study="studyA, studyB")
+    # Both studies' attributes are merged onto the same sample.
+    assert data["TCGA-A-1-01"]["SUBTYPE"] == "BRCA_Basal"
+    assert data["TCGA-A-1-01"]["ER_STATUS_BY_IHC"] == "Positive"
+    assert "SUBTYPE" in cols and "ER_STATUS_BY_IHC" in cols
+
+
+def test_report_always_has_version_stamp(tmp_path):
+    out = tmp_path / "r.tsv"
+    io.write_report(out, database_total=0)
+    assert "gacdi_manifest_version" in out.read_text()
+
+
+def test_version_string_includes_build(monkeypatch):
+    import gacdi_manifest
+
+    monkeypatch.setattr(gacdi_manifest, "BUILD", "deadbee")
+    assert gacdi_manifest.version_string() == f"{gacdi_manifest.__version__}+deadbee"
+
+    monkeypatch.setattr(gacdi_manifest, "BUILD", "")
+    assert gacdi_manifest.version_string() == gacdi_manifest.__version__

@@ -186,10 +186,11 @@
                         </param>
                         <when value="no"/>
                         <when value="yes">
-                            <param name="study" type="text" value="" label="cBioPortal study id (required)"
-                                   help="Find it in the study URL at cbioportal.org (the id= part), e.g. brca_tcga_pan_can_atlas_2018 for TCGA-BRCA.">
+                            <param name="study" type="text" value="" label="cBioPortal study id(s) (required)"
+                                   help="One id, or comma-separate several to COMBINE them, e.g. brca_tcga_pan_can_atlas_2018,brca_tcga (PAM50 subtype + ER/PR/HER2 IHC). Ids only — no flag, no spaces inside an id. Find each in its cBioPortal URL after 'id='.">
                                 <expand macro="safe_text"/>
                                 <validator type="empty_field"/>
+                                <validator type="regex" message="Enter study id(s) only, e.g. brca_tcga or a,b,c — no spaces inside an id, no flag names.">^\s*[A-Za-z0-9_.-]+(\s*,\s*[A-Za-z0-9_.-]+)*\s*$</validator>
                             </param>
                             <param name="attrs" type="text" value="" optional="true"
                                    label="Which attributes to add"

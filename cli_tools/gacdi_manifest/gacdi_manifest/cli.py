@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 
-from . import __version__, cbioportal, enrich, gdc, io
+from . import cbioportal, enrich, gdc, io, version_string
 from .errors import InputError, ManifestError
 from .filters import build_filters
 from .join import join
@@ -30,7 +30,7 @@ PREVIEW_FACETS = [
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="gacdi-manifest", description="GaCDI manifest builder.")
-    parser.add_argument("--version", action="version", version=f"gacdi-manifest {__version__}")
+    parser.add_argument("--version", action="version", version=f"gacdi-manifest {version_string()}")
     sub = parser.add_subparsers(dest="database", required=True, metavar="DATABASE")
 
     p = sub.add_parser("gdc", help="Build a manifest from the GDC files API.")
@@ -58,7 +58,9 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--count-only", action="store_true", help="Preview match counts; do not build.")
 
     enr = p.add_argument_group("enrichment (optional)")
-    enr.add_argument("--cbioportal-study", dest="cbioportal_study")
+    enr.add_argument("--cbioportal-study", dest="cbioportal_study",
+                     help="One study id, or several comma-separated to merge "
+                          "(e.g. brca_tcga_pan_can_atlas_2018,brca_tcga for PAM50 + ER/PR/HER2).")
     enr.add_argument("--cbioportal-attrs", dest="cbioportal_attrs", help="Comma list of attribute ids, or 'all'.")
     enr.add_argument("--cbioportal-base", dest="cbioportal_base", default=cbioportal.DEFAULT_BASE)
     enr.add_argument("--cbioportal-list-attrs", action="store_true",
@@ -82,19 +84,32 @@ def build_parser() -> argparse.ArgumentParser:
 def _run_gdc(args: argparse.Namespace) -> int:
     session = build_session()
 
+    # Normalise and sanity-check the cBioPortal study id(s) early, before the
+    # (expensive) GDC query, so a bad id fails fast with a clear message.
+    # One or more comma-separated ids are allowed (they get merged).
+    if args.cbioportal_study:
+        studies = enrich.split_studies(args.cbioportal_study)
+        bad = [s for s in studies if any(c.isspace() for c in s)]
+        if bad:
+            raise InputError(
+                f"cBioPortal study id(s) must be bare ids like 'brca_tcga' "
+                f"(comma-separate several), not {bad!r}. No flag names or spaces inside an id."
+            )
+        args.cbioportal_study = ",".join(studies)
+
     # Discovery helper: list cBioPortal attributes and stop.
     if args.cbioportal_list_attrs:
         if not args.cbioportal_study:
             raise InputError("--cbioportal-list-attrs requires --cbioportal-study.")
-        attrs = cbioportal.list_attributes(session, args.cbioportal_study, base=args.cbioportal_base)
+        rows = []
+        for study in enrich.split_studies(args.cbioportal_study):
+            for a in cbioportal.list_attributes(session, study, base=args.cbioportal_base):
+                rows.append(("cbioportal_attribute", a.get("clinicalAttributeId", ""),
+                             f"{study}: {a.get('displayName', '')}"))
         io.write_manifest(args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
-        io.write_report(
-            args.report_out,
-            extra=[("cbioportal_attribute", a.get("clinicalAttributeId", ""), a.get("displayName", ""))
-                   for a in attrs],
-        )
-        log.info("Wrote %d cBioPortal attribute(s) to the report.", len(attrs))
+        io.write_report(args.report_out, extra=rows)
+        log.info("Wrote %d cBioPortal attribute(s) to the report.", len(rows))
         return 0
 
     raw = None
@@ -195,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.DEBUG if getattr(args, "verbose", False) else logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
     )
+    # Emit the running version to the job log so it is visible in Galaxy's job info.
+    log.info("gacdi-manifest %s", version_string())
     try:
         if args.database == "gdc":
             return _run_gdc(args)
