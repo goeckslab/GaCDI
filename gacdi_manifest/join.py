@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .model import FileRow, project_id, sample_type
+from .model import (
+    FileRow,
+    disease_type,
+    field_value,
+    primary_site,
+    project_id,
+    sample_type,
+)
 
 
 def normalize_barcode(barcode: str | None, level: str = "sample", trim_vial: bool = True) -> str | None:
@@ -94,9 +101,18 @@ def join(
             "md5": fr.md5,
             "size": fr.size,
             "state": fr.state,
+            "galaxy_ext": fr.galaxy_ext,
+            "data_format": fr.data_format or "",
+            "data_category": field_value(fr.meta, "data_category") or "",
+            "data_type": field_value(fr.meta, "data_type") or "",
+            "experimental_strategy": field_value(fr.meta, "experimental_strategy") or "",
+            "workflow_type": field_value(fr.meta, "analysis.workflow_type") or "",
+            "platform": field_value(fr.meta, "platform") or "",
             "case_barcode": fr.case_barcode or "",
             "sample_barcode": fr.sample_barcode or "",
             "sample_type": sample_type(fr.meta) or "",
+            "primary_site": primary_site(fr.meta) or "",
+            "disease_type": disease_type(fr.meta) or "",
             "project": project_id(fr.meta) or "",
             "matched": "yes" if attrs is not None else "no",
         }

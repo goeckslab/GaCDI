@@ -16,7 +16,16 @@ from .net import build_session
 log = logging.getLogger("gacdi_manifest")
 
 # Facets summarised in count-only previews.
-PREVIEW_FACETS = ["data_category", "data_type", "experimental_strategy", "data_format", "access"]
+PREVIEW_FACETS = [
+    "data_category",
+    "data_type",
+    "experimental_strategy",
+    "data_format",
+    "platform",
+    "access",
+    "cases.primary_site",
+    "analysis.workflow_type",
+]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,9 +37,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     facets = p.add_argument_group("guided filters")
     facets.add_argument("--project", help="Project id, e.g. TCGA-BRCA (comma-separated for several).")
+    facets.add_argument("--primary-site", dest="primary_site", help="e.g. Breast, Lung, Brain.")
+    facets.add_argument("--disease-type", dest="disease_type")
     facets.add_argument("--data-category", dest="data_category")
     facets.add_argument("--data-type", dest="data_type")
     facets.add_argument("--experimental-strategy", dest="experimental_strategy")
+    facets.add_argument("--workflow-type", dest="workflow_type", help="Analysis workflow, e.g. 'STAR - Counts'.")
+    facets.add_argument("--platform", dest="platform")
     facets.add_argument("--data-format", dest="data_format")
     facets.add_argument("--access", help="open or controlled.")
     facets.add_argument("--sample-type", dest="sample_type")
@@ -90,9 +103,13 @@ def _run_gdc(args: argparse.Namespace) -> int:
             raw = json.load(fh)
     filters = build_filters(
         project=args.project,
+        primary_site=args.primary_site,
+        disease_type=args.disease_type,
         data_category=args.data_category,
         data_type=args.data_type,
         experimental_strategy=args.experimental_strategy,
+        workflow_type=args.workflow_type,
+        platform=args.platform,
         data_format=args.data_format,
         access=args.access,
         sample_type=args.sample_type,
@@ -110,6 +127,14 @@ def _run_gdc(args: argparse.Namespace) -> int:
         return 0
 
     file_rows = gdc.query_files(session, filters, max_files=args.max_files)
+    # Drop rows without a file id: the GaCDI GDC importer skips empty-id manifest
+    # rows, so excluding them keeps the manifest and metadata table aligned.
+    dropped = [r for r in file_rows if not r.file_id]
+    if dropped:
+        log.warning("Dropped %d file(s) with no file id.", len(dropped))
+    file_rows = [r for r in file_rows if r.file_id]
+    # Deterministic order so the manifest is reproducible across runs (workflows).
+    file_rows.sort(key=lambda r: r.file_id)
     annotations, ann_cols = enrich.collect(
         session,
         cbioportal_study=args.cbioportal_study,

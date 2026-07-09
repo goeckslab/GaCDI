@@ -30,7 +30,10 @@ def test_full_build_with_annotation(tmp_path, gdc_api):
     assert "uuid1\tA.svs\tmd5a\t100\treleased" in manifest
 
     metadata = (tmp_path / "md.tsv").read_text()
-    assert "Histology" in metadata.splitlines()[0]
+    header = metadata.splitlines()[0]
+    assert "Histology" in header
+    assert "galaxy_ext" in header  # workflow datatype hint present
+    assert "\tsvs\t" in metadata  # A.svs -> svs datatype
     assert "IDC" in metadata  # uuid1 matched by barcode
 
     report = (tmp_path / "r.tsv").read_text()

@@ -9,6 +9,12 @@
             #if str($filters.project).strip() != ''
                 --project '$filters.project'
             #end if
+            #if str($filters.primary_site).strip() != ''
+                --primary-site '$filters.primary_site'
+            #end if
+            #if str($filters.disease_type).strip() != ''
+                --disease-type '$filters.disease_type'
+            #end if
             #if str($filters.data_category) != ''
                 --data-category '$filters.data_category'
             #end if
@@ -17,6 +23,12 @@
             #end if
             #if str($filters.experimental_strategy) != ''
                 --experimental-strategy '$filters.experimental_strategy'
+            #end if
+            #if str($filters.workflow_type).strip() != ''
+                --workflow-type '$filters.workflow_type'
+            #end if
+            #if str($filters.platform).strip() != ''
+                --platform '$filters.platform'
             #end if
             #if str($filters.data_format) != ''
                 --data-format '$filters.data_format'
@@ -66,6 +78,14 @@
                    help="e.g. TCGA-BRCA. Comma-separate for several.">
                 <expand macro="safe_text"/>
             </param>
+            <param name="primary_site" type="text" value="" label="Primary site"
+                   help="Anatomic site, e.g. Breast, Lung, Brain. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="disease_type" type="text" value="" label="Disease type"
+                   help="e.g. Ductal and Lobular Neoplasms. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
             <param name="data_category" type="select" label="Data category">
                 <option value="" selected="true">Any</option>
                 <option value="Biospecimen">Biospecimen</option>
@@ -91,6 +111,14 @@
                 <option value="Methylation Array">Methylation Array</option>
                 <option value="Diagnostic Slide">Diagnostic Slide</option>
                 <option value="Tissue Slide">Tissue Slide</option>
+            </param>
+            <param name="workflow_type" type="text" value="" label="Analysis workflow type"
+                   help="e.g. STAR - Counts, BWA-aligned, Aliquot Ensemble Somatic Variant Merging and Masking.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="platform" type="text" value="" label="Platform"
+                   help="e.g. Illumina. Comma-separate for several.">
+                <expand macro="safe_text"/>
             </param>
             <param name="data_format" type="select" label="Data format">
                 <option value="" selected="true">Any</option>
@@ -203,7 +231,11 @@ instead of a whole dataset. It produces three outputs:
    to feed straight into the **GaCDI GDC** importer or ``gdc-client``.
 2. **metadata** — a research table joining the file records to sample barcodes and
    any clinical/molecular annotations you enable (GDC fields, cBioPortal subtypes
-   such as PAM50 and ER/PR/HER2, and/or an uploaded annotation table).
+   such as PAM50 and ER/PR/HER2, and/or an uploaded annotation table). It also
+   carries workflow-relevant columns — ``data_format``, ``data_type``,
+   ``experimental_strategy``, ``workflow_type``, ``platform``, ``primary_site``,
+   ``disease_type`` — and a ``galaxy_ext`` column giving the best-effort Galaxy
+   datatype for each file, so downstream tools know how to interpret it.
 3. **report** — match/precision QC: counts, unmatched files, unused annotations
    and colliding keys. In *Preview counts only* mode this holds the match count and
    a facet breakdown so you can refine filters cheaply before building.

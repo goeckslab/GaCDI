@@ -20,7 +20,7 @@ log = logging.getLogger("gacdi_manifest.gdc")
 
 FILES_ENDPOINT = "https://api.gdc.cancer.gov/files"
 
-# Requested fields: manifest columns + join keys + useful facets.
+# Requested fields: manifest columns + join keys + workflow-relevant metadata.
 FIELDS = [
     "file_id",
     "file_name",
@@ -31,11 +31,15 @@ FIELDS = [
     "data_type",
     "data_category",
     "experimental_strategy",
+    "platform",
     "access",
+    "analysis.workflow_type",
     "cases.submitter_id",
     "cases.samples.submitter_id",
     "cases.samples.sample_type",
     "cases.project.project_id",
+    "cases.primary_site",
+    "cases.disease_type",
 ]
 
 DEFAULT_PAGE_SIZE = 500

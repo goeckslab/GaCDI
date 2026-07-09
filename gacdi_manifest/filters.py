@@ -12,9 +12,13 @@ from .errors import InputError
 # endpoint; case-level fields use the ``cases.`` path.
 GUIDED_FIELDS = {
     "project": "cases.project.project_id",
+    "primary_site": "cases.primary_site",
+    "disease_type": "cases.disease_type",
     "data_category": "data_category",
     "data_type": "data_type",
     "experimental_strategy": "experimental_strategy",
+    "workflow_type": "analysis.workflow_type",
+    "platform": "platform",
     "data_format": "data_format",
     "access": "access",
     "sample_type": "cases.samples.sample_type",
@@ -49,9 +53,13 @@ def parse_extra_filter(spec: str) -> dict:
 def build_filters(
     *,
     project: str | None = None,
+    primary_site: str | None = None,
+    disease_type: str | None = None,
     data_category: str | None = None,
     data_type: str | None = None,
     experimental_strategy: str | None = None,
+    workflow_type: str | None = None,
+    platform: str | None = None,
     data_format: str | None = None,
     access: str | None = None,
     sample_type: str | None = None,
@@ -66,9 +74,13 @@ def build_filters(
     content: list[dict] = []
     guided = {
         "project": project,
+        "primary_site": primary_site,
+        "disease_type": disease_type,
         "data_category": data_category,
         "data_type": data_type,
         "experimental_strategy": experimental_strategy,
+        "workflow_type": workflow_type,
+        "platform": platform,
         "data_format": data_format,
         "access": access,
         "sample_type": sample_type,

@@ -15,7 +15,11 @@ want, described in two complementary outputs:
   directly by `gdc-client` and by the GaCDI GDC importer.
 - **metadata table** — the same files joined to sample barcodes and, optionally,
   clinical/molecular annotations (GDC fields, cBioPortal subtypes like PAM50 and
-  ER/PR/HER2, and/or a user-uploaded annotation TSV).
+  ER/PR/HER2, and/or a user-uploaded annotation TSV). It also carries
+  workflow-routing columns (`data_format`, `data_type`, `experimental_strategy`,
+  `workflow_type`, `platform`, `primary_site`, `disease_type`) and a **`galaxy_ext`**
+  column giving each file's best-effort Galaxy datatype (`bam`, `vcf`, `svs`,
+  `tabular`, …) so downstream analysis tools know how to interpret it.
 - **report** — match/precision QC (counts, unmatched files, unused annotations,
   key collisions); also the target of *preview counts only* mode.
 
@@ -44,17 +48,41 @@ gacdi-manifest gdc --cbioportal-study brca_tcga_pan_can_atlas_2018 \
   --cbioportal-list-attrs --manifest-out m.txt --metadata-out meta.tsv --report-out report.tsv
 ```
 
-Filters combine three sources (AND): guided facets (`--project`, `--data-category`,
-`--data-type`, `--experimental-strategy`, `--data-format`, `--access`,
-`--sample-type`), repeatable custom facets
-(`--extra-filter "field=…;op=in|exclude;values=a,b"`), and a raw GDC filters JSON
-(`--raw-filters`).
+Filters combine three sources (AND): guided facets (`--project`, `--primary-site`,
+`--disease-type`, `--data-category`, `--data-type`, `--experimental-strategy`,
+`--workflow-type`, `--platform`, `--data-format`, `--access`, `--sample-type`),
+repeatable custom facets (`--extra-filter "field=…;op=in|exclude;values=a,b"`), and
+a raw GDC filters JSON (`--raw-filters`). The manifest is emitted in a deterministic
+(sorted) order for reproducible workflows.
 
-### Downstream
+### End-to-end with the GaCDI GDC importer
 
-Feed `gdc_manifest.txt` to the **GaCDI GDC** importer (or `gdc-client download -m
-gdc_manifest.txt`) to fetch the files, then join the results to `metadata.tsv` by
-the `sample`/barcode column for analysis (e.g. labels for an image ML model).
+This tool is designed to feed directly into the **GaCDI GDC importer** (the
+manifest-download branch), so a single Galaxy workflow goes *filter → manifest →
+download → analysis*:
+
+```
+[GaCDI Manifest Builder]--gdc_manifest.txt-->[GaCDI GDC importer]--collection-->[analysis tools]
+                        \--metadata.tsv------------------------------(join)----/
+```
+
+**Compatibility contract (locked by `tests/test_importer_contract.py`):**
+
+1. **Manifest → importer.** `gdc_manifest.txt` is a TSV whose header
+   (`id, filename, md5, size, state`) is a superset of what the importer's
+   `parse_gdc_manifest` requires (`id/filename/md5/size`); its datatype (`txt`)
+   is accepted by the importer's manifest input (`tabular,txt`). Rows with no
+   `id` are dropped so the manifest and metadata stay row-aligned. The same file
+   also works with `gdc-client download -m gdc_manifest.txt`.
+2. **Metadata ↔ history.** `metadata.tsv` leads with `file_id` and `filename` —
+   the exact keys of the importer's history **summary** — so after download you
+   join the metadata to the imported collection/summary on `file_id` (stable
+   UUID) or `filename` to attach clinical labels, the `galaxy_ext` datatype hint,
+   and subtype annotations to each sample in the history.
+
+So: build the manifest here, run the importer to bring the samples into the
+history, then join `metadata.tsv` to give those history datasets their
+annotations (e.g. labels for an image ML model).
 
 ## Runtime environment
 
