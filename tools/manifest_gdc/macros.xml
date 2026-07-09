@@ -2,13 +2,12 @@
     <token name="@TOOL_VERSION@">0.1.0</token>
     <token name="@VERSION_SUFFIX@">0</token>
     <token name="@PROFILE@">22.05</token>
-    <token name="@QUAY_ORG@">paulocilasjr</token>
 
     <xml name="requirements">
         <requirements>
             <requirement type="package" version="3.11">python</requirement>
             <requirement type="package" version="2.32">requests</requirement>
-            <container type="docker">quay.io/@QUAY_ORG@/gacdi-manifest:@TOOL_VERSION@</container>
+            <container type="docker">quay.io/goeckslab/gacdi-manifest:@TOOL_VERSION@</container>
         </requirements>
     </xml>
 
