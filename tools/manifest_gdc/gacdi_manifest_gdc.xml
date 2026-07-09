@@ -1,0 +1,221 @@
+<tool id="gacdi_manifest_gdc" name="GaCDI Manifest Builder (GDC)" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>build a filtered GDC download manifest and enriched metadata table</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code"><![CDATA[
+        gacdi-manifest gdc
+            #if str($filters.project).strip() != ''
+                --project '$filters.project'
+            #end if
+            #if str($filters.data_category) != ''
+                --data-category '$filters.data_category'
+            #end if
+            #if str($filters.data_type).strip() != ''
+                --data-type '$filters.data_type'
+            #end if
+            #if str($filters.experimental_strategy) != ''
+                --experimental-strategy '$filters.experimental_strategy'
+            #end if
+            #if str($filters.data_format) != ''
+                --data-format '$filters.data_format'
+            #end if
+            #if str($filters.access) != ''
+                --access '$filters.access'
+            #end if
+            #if str($filters.sample_type).strip() != ''
+                --sample-type '$filters.sample_type'
+            #end if
+            #for $ef in $extra_filters
+                --extra-filter 'field=${ef.field};op=${ef.op};values=${ef.values}'
+            #end for
+            #if $advanced.raw_filters
+                --raw-filters '$advanced.raw_filters'
+            #end if
+            #if $count_only
+                --count-only
+            #else
+                #if str($max_files) != ''
+                    --max-files $max_files
+                #end if
+            #end if
+            #if $enrich.enable == 'yes'
+                #if str($enrich.cbioportal_study).strip() != ''
+                    --cbioportal-study '$enrich.cbioportal_study'
+                    #if str($enrich.cbioportal_attrs).strip() != ''
+                        --cbioportal-attrs '$enrich.cbioportal_attrs'
+                    #end if
+                #end if
+                #if $enrich.annotation_tsv
+                    --annotation-tsv '$enrich.annotation_tsv'
+                    --annotation-key-col '$enrich.annotation_key_col'
+                #end if
+            #end if
+            --join-level '$join_level'
+            #if not $trim_vial
+                --no-trim-vial
+            #end if
+            --manifest-out '$manifest'
+            --metadata-out '$metadata'
+            --report-out '$report'
+    ]]></command>
+    <inputs>
+        <section name="filters" title="File selection (GDC filters)" expanded="true">
+            <param name="project" type="text" value="" label="Project id(s)"
+                   help="e.g. TCGA-BRCA. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="data_category" type="select" label="Data category">
+                <option value="" selected="true">Any</option>
+                <option value="Biospecimen">Biospecimen</option>
+                <option value="Clinical">Clinical</option>
+                <option value="Copy Number Variation">Copy Number Variation</option>
+                <option value="DNA Methylation">DNA Methylation</option>
+                <option value="Sequencing Reads">Sequencing Reads</option>
+                <option value="Simple Nucleotide Variation">Simple Nucleotide Variation</option>
+                <option value="Structural Variation">Structural Variation</option>
+                <option value="Transcriptome Profiling">Transcriptome Profiling</option>
+            </param>
+            <param name="data_type" type="text" value="" label="Data type"
+                   help="e.g. Slide Image, Gene Expression Quantification, Aligned Reads.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="experimental_strategy" type="select" label="Experimental strategy">
+                <option value="" selected="true">Any</option>
+                <option value="WXS">WXS</option>
+                <option value="WGS">WGS</option>
+                <option value="RNA-Seq">RNA-Seq</option>
+                <option value="miRNA-Seq">miRNA-Seq</option>
+                <option value="Genotyping Array">Genotyping Array</option>
+                <option value="Methylation Array">Methylation Array</option>
+                <option value="Diagnostic Slide">Diagnostic Slide</option>
+                <option value="Tissue Slide">Tissue Slide</option>
+            </param>
+            <param name="data_format" type="select" label="Data format">
+                <option value="" selected="true">Any</option>
+                <option value="BAM">BAM</option>
+                <option value="VCF">VCF</option>
+                <option value="MAF">MAF</option>
+                <option value="TXT">TXT</option>
+                <option value="TSV">TSV</option>
+                <option value="SVS">SVS</option>
+                <option value="IDAT">IDAT</option>
+                <option value="BCR XML">BCR XML</option>
+            </param>
+            <param name="access" type="select" label="Access">
+                <option value="" selected="true">Any</option>
+                <option value="open">open</option>
+                <option value="controlled">controlled</option>
+            </param>
+            <param name="sample_type" type="text" value="" label="Sample type"
+                   help="e.g. Primary Tumor, Solid Tissue Normal.">
+                <expand macro="safe_text"/>
+            </param>
+        </section>
+        <repeat name="extra_filters" title="Custom filter" min="0"
+                help="Add filters for any GDC field not covered above.">
+            <param name="field" type="text" value="" label="GDC field"
+                   help="e.g. cases.samples.sample_type, files.analysis.workflow_type.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="op" type="select" label="Operator">
+                <option value="in">is one of (in)</option>
+                <option value="exclude">is not (exclude)</option>
+            </param>
+            <param name="values" type="text" value="" label="Value(s)" help="Comma-separated.">
+                <expand macro="safe_text"/>
+            </param>
+        </repeat>
+        <section name="advanced" title="Advanced: raw filters JSON" expanded="false">
+            <param name="raw_filters" type="data" format="json,txt" optional="true"
+                   label="Raw GDC filters JSON"
+                   help="A full GDC 'filters' object; merged (AND) with the fields above."/>
+        </section>
+        <conditional name="enrich">
+            <param name="enable" type="select" label="Enrich with metadata?">
+                <option value="no" selected="true">No — manifest + GDC fields only</option>
+                <option value="yes">Yes — join clinical/annotation data</option>
+            </param>
+            <when value="no"/>
+            <when value="yes">
+                <param name="cbioportal_study" type="text" value="" optional="true"
+                       label="cBioPortal study id"
+                       help="e.g. brca_tcga_pan_can_atlas_2018. Leave blank to skip cBioPortal.">
+                    <expand macro="safe_text"/>
+                </param>
+                <param name="cbioportal_attrs" type="text" value="" optional="true"
+                       label="cBioPortal attribute id(s)"
+                       help="Comma-separated (e.g. SUBTYPE,ER_STATUS_BY_IHC,PR_STATUS_BY_IHC) or 'all'.">
+                    <expand macro="safe_text"/>
+                </param>
+                <param name="annotation_tsv" type="data" format="tabular,txt" optional="true"
+                       label="Annotation table (TSV)"
+                       help="Optional. Extra per-sample annotations (e.g. histology) merged by barcode."/>
+                <param name="annotation_key_col" type="text" value="sample"
+                       label="Annotation key column" help="Column holding the sample/patient barcode.">
+                    <expand macro="safe_text"/>
+                </param>
+            </when>
+        </conditional>
+        <param name="join_level" type="select" label="Join level"
+               help="Granularity for matching file barcodes to annotations.">
+            <option value="sample" selected="true">Sample (TCGA-XX-XXXX-01)</option>
+            <option value="patient">Patient (TCGA-XX-XXXX)</option>
+            <option value="full">Full barcode</option>
+        </param>
+        <param name="trim_vial" type="boolean" checked="true" truevalue="true" falsevalue=""
+               label="Trim vial letter when matching" help="Treat 01A and 01 as the same sample."/>
+        <param name="max_files" type="integer" value="" optional="true" min="1"
+               label="Maximum number of files" help="Cap the manifest size. Leave blank for no limit."/>
+        <param name="count_only" type="boolean" checked="false" truevalue="true" falsevalue=""
+               label="Preview counts only"
+               help="Report how many files match (with facet breakdown) without building the full manifest."/>
+    </inputs>
+    <outputs>
+        <data name="manifest" format="txt" label="${tool.name} on ${on_string}: GDC manifest"/>
+        <data name="metadata" format="tabular" label="${tool.name} on ${on_string}: metadata"/>
+        <data name="report" format="tabular" label="${tool.name} on ${on_string}: report"/>
+    </outputs>
+    <tests>
+        <!-- Live preview: light GDC count/facet calls; run with `planemo test`. -->
+        <test>
+            <section name="filters">
+                <param name="project" value="TCGA-BRCA"/>
+                <param name="data_type" value="Slide Image"/>
+            </section>
+            <param name="count_only" value="true"/>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="files_matching_filters"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI Manifest Builder (GDC)**
+
+Builds a **targeted** download manifest from the NCI `Genomic Data Commons
+<https://gdc.cancer.gov/>`_ by filtering, so you fetch exactly the files you want
+instead of a whole dataset. It produces three outputs:
+
+1. **GDC manifest** — strict ``id / filename / md5 / size / state`` format, ready
+   to feed straight into the **GaCDI GDC** importer or ``gdc-client``.
+2. **metadata** — a research table joining the file records to sample barcodes and
+   any clinical/molecular annotations you enable (GDC fields, cBioPortal subtypes
+   such as PAM50 and ER/PR/HER2, and/or an uploaded annotation table).
+3. **report** — match/precision QC: counts, unmatched files, unused annotations
+   and colliding keys. In *Preview counts only* mode this holds the match count and
+   a facet breakdown so you can refine filters cheaply before building.
+
+**Why two files?** ``gdc-client`` rejects a manifest that contains extra clinical
+columns or lacks ``state`` — so the lean manifest is kept separate from the rich
+metadata table, which you join to the downloaded files afterwards by barcode.
+
+**Filtering**
+
+Use the guided facets for the common fields, add *Custom filter* rows for anything
+else, and/or supply a full **raw filters JSON** — all are AND-combined.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>
