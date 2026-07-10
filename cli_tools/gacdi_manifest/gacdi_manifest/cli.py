@@ -48,6 +48,14 @@ def build_parser() -> argparse.ArgumentParser:
     facets.add_argument("--access", help="open or controlled.")
     facets.add_argument("--sample-type", dest="sample_type")
 
+    cohort = p.add_argument_group("cohort lists (match an uploaded set of ids)")
+    cohort.add_argument("--file-id-list", dest="file_id_list",
+                        help="Path to a file of GDC file ids (one per line) to match.")
+    cohort.add_argument("--case-list", dest="case_list",
+                        help="Path to a file of case submitter ids/barcodes (one per line).")
+    cohort.add_argument("--sample-list", dest="sample_list",
+                        help="Path to a file of sample submitter ids/barcodes (one per line).")
+
     adv = p.add_argument_group("advanced filters")
     adv.add_argument("--extra-filter", dest="extra_filters", action="append", default=[],
                      metavar="field=F;op=in;values=a,b", help="Custom facet (repeatable).")
@@ -79,6 +87,18 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--report-out", default="report.tsv")
     p.add_argument("--verbose", action="store_true")
     return parser
+
+
+def _read_id_list(path: str | None) -> list[str]:
+    """Read a cohort id file into a list (one id per line; blanks/#comments skipped)."""
+    if not path:
+        return []
+    with open(path) as fh:
+        return [
+            line.strip()
+            for line in fh
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
 
 
 def _run_gdc(args: argparse.Namespace) -> int:
@@ -128,6 +148,9 @@ def _run_gdc(args: argparse.Namespace) -> int:
         data_format=args.data_format,
         access=args.access,
         sample_type=args.sample_type,
+        file_id_list=_read_id_list(args.file_id_list),
+        case_list=_read_id_list(args.case_list),
+        sample_list=_read_id_list(args.sample_list),
         extra_filters=args.extra_filters,
         raw_filters=raw,
     )

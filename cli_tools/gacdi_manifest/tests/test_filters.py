@@ -39,3 +39,22 @@ def test_raw_filters_flattened():
 def test_no_filters_raises():
     with pytest.raises(InputError):
         build_filters()
+
+
+def test_cohort_lists_become_in_clauses():
+    f = build_filters(
+        file_id_list=["uuid1", "uuid2"],
+        case_list=["TCGA-E9-A5FL"],
+        sample_list=[],
+    )
+    fields = {c["content"]["field"]: c["content"]["value"] for c in f["content"]}
+    assert fields["file_id"] == ["uuid1", "uuid2"]
+    assert fields["cases.submitter_id"] == ["TCGA-E9-A5FL"]
+    # An empty list contributes no clause.
+    assert "cases.samples.submitter_id" not in fields
+
+
+def test_cohort_list_alone_is_sufficient():
+    # A cohort list is a real selection, so it must not trip the "no filters" guard.
+    f = build_filters(file_id_list=["uuid1"])
+    assert f["content"][0]["content"]["field"] == "file_id"

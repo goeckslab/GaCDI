@@ -86,6 +86,25 @@ def test_no_matches_writes_note(tmp_path, requests_mock):
     assert (tmp_path / "m.txt").read_text().strip() == "id\tfilename\tmd5\tsize\tstate"
 
 
+def test_file_id_list_flag(tmp_path, gdc_api):
+    id_file = tmp_path / "ids.txt"
+    id_file.write_text("# my cohort\nuuid1\nuuid2\n")
+    rc = main([
+        "gdc", "--file-id-list", str(id_file),
+        "--manifest-out", str(tmp_path / "m.txt"),
+        "--metadata-out", str(tmp_path / "md.tsv"),
+        "--report-out", str(tmp_path / "r.tsv"),
+    ])
+    assert rc == 0
+    # The posted filter must carry the two ids (comment/blank lines skipped).
+    file_id_clause = [
+        c for req in gdc_api.request_history
+        for c in req.json().get("filters", {}).get("content", [])
+        if c.get("content", {}).get("field") == "file_id"
+    ]
+    assert file_id_clause and file_id_clause[0]["content"]["value"] == ["uuid1", "uuid2"]
+
+
 def test_no_filters_exit_code(tmp_path):
     rc = main(["gdc", "--manifest-out", str(tmp_path / "m.txt"),
                "--metadata-out", str(tmp_path / "md.tsv"),

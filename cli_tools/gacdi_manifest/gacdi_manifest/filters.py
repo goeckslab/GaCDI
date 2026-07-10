@@ -24,6 +24,13 @@ GUIDED_FIELDS = {
     "sample_type": "cases.samples.sample_type",
 }
 
+# Cohort-list flag -> GDC field. Each reads a list of ids and matches with ``in``.
+COHORT_FIELDS = {
+    "file_id_list": "file_id",
+    "case_list": "cases.submitter_id",
+    "sample_list": "cases.samples.submitter_id",
+}
+
 
 def _split(values: str) -> list[str]:
     return [v.strip() for v in values.split(",") if v.strip()]
@@ -63,6 +70,9 @@ def build_filters(
     data_format: str | None = None,
     access: str | None = None,
     sample_type: str | None = None,
+    file_id_list: list[str] | None = None,
+    case_list: list[str] | None = None,
+    sample_list: list[str] | None = None,
     extra_filters: list[str] | None = None,
     raw_filters: dict | None = None,
 ) -> dict:
@@ -88,6 +98,12 @@ def build_filters(
     for name, value in guided.items():
         if value and value.strip():
             content.append(_clause(GUIDED_FIELDS[name], _split(value)))
+
+    cohorts = {"file_id_list": file_id_list, "case_list": case_list, "sample_list": sample_list}
+    for name, values in cohorts.items():
+        ids = [v.strip() for v in (values or []) if v and v.strip()]
+        if ids:
+            content.append(_clause(COHORT_FIELDS[name], ids))
 
     for spec in extra_filters or []:
         content.append(parse_extra_filter(spec))
