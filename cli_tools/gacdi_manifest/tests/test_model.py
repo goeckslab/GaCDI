@@ -1,10 +1,12 @@
 from gacdi_manifest.model import (
     case_barcode,
+    case_id,
     disease_type,
     galaxy_ext,
     primary_site,
     project_id,
     sample_barcode,
+    sample_id,
     sample_type,
 )
 
@@ -20,6 +22,15 @@ def test_barcode_extraction_from_flattened_row():
     assert sample_barcode(row) == "TCGA-E9-A5FL-01A"
     assert sample_type(row) == "Primary Tumor"
     assert project_id(row) == "TCGA-BRCA"
+
+
+def test_uuid_extraction_from_flattened_row():
+    row = {
+        "cases.0.case_id": "c-uuid-1",
+        "cases.0.samples.0.sample_id": "s-uuid-1",
+    }
+    assert case_id(row) == "c-uuid-1"
+    assert sample_id(row) == "s-uuid-1"
 
 
 def test_barcode_extraction_unprefixed_fallback():

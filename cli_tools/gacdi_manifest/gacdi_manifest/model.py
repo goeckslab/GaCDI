@@ -13,6 +13,9 @@ _SAMPLE_TYPE = re.compile(r"^cases\.\d+\.samples\.\d+\.sample_type$")
 _PROJECT = re.compile(r"^cases\.\d+\.project\.project_id$")
 _PRIMARY_SITE = re.compile(r"^cases\.\d+\.primary_site$")
 _DISEASE_TYPE = re.compile(r"^cases\.\d+\.disease_type$")
+# GDC-native UUIDs: stable join keys that don't depend on TCGA barcode structure.
+_CASE_ID = re.compile(r"^cases\.\d+\.case_id$")
+_SAMPLE_ID = re.compile(r"^cases\.\d+\.samples\.\d+\.sample_id$")
 
 
 def _first_match(row: dict, pattern: re.Pattern) -> str | None:
@@ -50,6 +53,14 @@ def primary_site(row: dict) -> str | None:
 
 def disease_type(row: dict) -> str | None:
     return _first_match(row, _DISEASE_TYPE) or row.get("cases.disease_type") or None
+
+
+def case_id(row: dict) -> str | None:
+    return _first_match(row, _CASE_ID) or row.get("cases.case_id") or None
+
+
+def sample_id(row: dict) -> str | None:
+    return _first_match(row, _SAMPLE_ID) or row.get("cases.samples.sample_id") or None
 
 
 # Best-effort mapping of a downloaded file to a Galaxy datatype extension, so the
@@ -245,6 +256,14 @@ class FileRow:
     @property
     def sample_barcode(self) -> str | None:
         return sample_barcode(self.meta)
+
+    @property
+    def case_id(self) -> str | None:
+        return case_id(self.meta)
+
+    @property
+    def sample_id(self) -> str | None:
+        return sample_id(self.meta)
 
     @property
     def data_format(self) -> str | None:

@@ -7,16 +7,25 @@ files, unused annotations and colliding keys.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from .model import (
     FileRow,
+    case_id,
     disease_type,
     field_value,
     primary_site,
     project_id,
+    sample_id,
     sample_type,
 )
+
+# TCGA barcodes have the fixed ``PROG-TSS-Participant[-Sample...]`` shape we slice
+# on. Anything else (TARGET/CPTAC/HCMI submitter ids, plain UUIDs) is passed
+# through untouched so the join reports a real match rate instead of fabricating a
+# trimmed key that can never match.
+_TCGA_BARCODE = re.compile(r"^TCGA-[0-9A-Za-z]{2}-[0-9A-Za-z]{4}")
 
 
 def normalize_barcode(barcode: str | None, level: str = "sample", trim_vial: bool = True) -> str | None:
@@ -25,11 +34,14 @@ def normalize_barcode(barcode: str | None, level: str = "sample", trim_vial: boo
     - ``patient`` : ``TCGA-XX-XXXX``
     - ``sample``  : ``TCGA-XX-XXXX-01`` (vial letter trimmed when *trim_vial*)
     - ``full``    : unchanged
+
+    Non-TCGA ids are returned unchanged at every level: they don't have this
+    structure, so slicing them would only invent keys that never match.
     """
     if not barcode:
         return None
     bc = barcode.strip()
-    if level == "full":
+    if level == "full" or not _TCGA_BARCODE.match(bc):
         return bc
     parts = bc.split("-")
     if level == "patient":
@@ -108,7 +120,9 @@ def join(
             "experimental_strategy": field_value(fr.meta, "experimental_strategy") or "",
             "workflow_type": field_value(fr.meta, "analysis.workflow_type") or "",
             "platform": field_value(fr.meta, "platform") or "",
+            "case_id": case_id(fr.meta) or "",
             "case_barcode": fr.case_barcode or "",
+            "sample_id": sample_id(fr.meta) or "",
             "sample_barcode": fr.sample_barcode or "",
             "sample_type": sample_type(fr.meta) or "",
             "primary_site": primary_site(fr.meta) or "",

@@ -17,6 +17,13 @@ def test_normalize_levels():
     assert normalize_barcode(bc, "full") == bc
 
 
+def test_normalize_passes_through_non_tcga_ids():
+    # Non-TCGA submitter ids / UUIDs must not be sliced into fabricated keys.
+    for bc in ("TARGET-20-PARABC-09A", "CPTAC-XYZ-01", "0f8e-uuid-1234", "sample_42"):
+        assert normalize_barcode(bc, "sample") == bc
+        assert normalize_barcode(bc, "patient") == bc
+
+
 def test_join_matches_and_reports():
     rows = [_filerow("uuid1", "TCGA-E9-A5FL-01A"), _filerow("uuid2", "TCGA-XX-YYYY-01A")]
     annotations = {"TCGA-E9-A5FL-01": {"SUBTYPE": "Basal"}}
