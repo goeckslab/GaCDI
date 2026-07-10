@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gacdi-manifest"
-version = "0.1.0"
+dynamic = ["version"]
 description = "GaCDI Manifest Builder — filter-driven manifest + enriched metadata generation for NIH/NCI cancer data repositories."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -26,6 +26,9 @@ gacdi-manifest = "gacdi_manifest.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/paulocilasjr/GaCDI"
+
+[tool.hatch.version]
+path = "gacdi_manifest/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gacdi_manifest"]
