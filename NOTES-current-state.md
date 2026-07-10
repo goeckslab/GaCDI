@@ -1,11 +1,18 @@
 # NOTES — Current State (T0.0 ground-truth)
 
 > Deliverable for **T0.0** of the implementation plan. Reconciles the plan's §1/§4/§5
-> assumptions against the actual repo as of branch `manifest_tool` (commit `be8d7c5`).
-> Read this before starting any other task. Where the plan is stale, the correction
-> is recorded here (the plan itself lives only in chat, not as a repo file).
+> assumptions against the actual repo. Read this before starting any other task.
+> Where the plan is stale, the correction is recorded here (the plan itself lives only
+> in chat, not as a repo file).
 
-Baseline verified: **36 tests pass offline** (`pytest -m "not network"`, 0.07s).
+> **⚠️ POST-MERGE UPDATE (branch `NIH_commons`).** §1–§7 below were written against the
+> `manifest_tool` branch in isolation. The builder has since been **merged onto
+> `NIH_commons`**, which already contains a mature downloader framework. The new unified
+> reality — and which plan tasks are now already satisfied — is in **§8 at the bottom**.
+> Read §8 first.
+
+Baseline verified: builder **43 tests** + downloader **52 tests** = **95 pass offline**
+on the merged tree (`pytest -m "not network"`).
 
 ---
 
@@ -166,3 +173,75 @@ query/UTC-timestamp to *those two* outputs (report already has the version).
   is already the approach.
 - §3 "optional extras per source" → partially pre-scaffolded in `containers/env/`.
 - §4.1 manifest schema → see conflict 5a; not mergeable as-is without a downstream decision.
+
+---
+
+## 8. POST-MERGE unified state (branch `NIH_commons`)
+
+The `manifest_tool` builder was merged onto `NIH_commons`. The two lines of work
+are **complementary halves of one system**:
+
+| Half | Path | Package / CLI | Responsibility |
+|---|---|---|---|
+| **Builder** | `cli_tools/gacdi_manifest/` | `gacdi-manifest` | query → **manifest + metadata** (no download) |
+| **Downloader** | `gacdi/` (repo root) | `gacdi` | consume manifest/accession/query → **download** into a Galaxy collection + summary |
+
+Merge outcome: code trees were disjoint; only 5 top-level infra files conflicted
+(`.shed.yml`, both `.github/workflows/*.yml`, `README.md`, `LICENSE` rename). All
+resolved by unioning both tools. **95 tests green** (52 downloader + 43 builder);
+both CLIs run.
+
+### 8.1 What the downloader (`gacdi/`) already provides — changes the plan
+The plan (written for the builder branch in isolation) assumed no importer
+abstraction existed. **On the downloader side it already does**, and it's exactly the
+shape plan §5 describes:
+
+- `gacdi/base.py` — `BaseImporter` ABC (template method: `resolve` → `download` →
+  verify → summarize) + `RunConfig`.
+- `gacdi/importers/__init__.py` — `REGISTRY` + `get_importer(name)`; self-registering
+  importer classes.
+- `gacdi/cli.py` — unified `gacdi <database> [common options]`, subparsers built by
+  iterating `REGISTRY`. Three input modes: manifest / accession / query.
+- Implemented **downloaders**: `gdc`, `geo`, `sra`, `cda`, `xena`.
+- Shared infra the builder duplicates: `gacdi/net.py` (retrying session — builder's
+  `net.py` is explicitly a TEMPORARY copy), `gacdi/errors.py`, `gacdi/model.py`
+  (`FileEntry`/`RunSummary`), `gacdi/manifest.py` (`parse_gdc_manifest` — the very
+  function the builder's `tests/test_importer_contract.py` currently *mirrors*),
+  `gacdi/history.py`, `gacdi/auth.py`.
+
+**Plan-task status delta:**
+- **T0.2 (importer interface + registry): ALREADY DONE for downloaders.** The builder
+  needs the *analogous* pattern for **builders** (query → manifest rows), which does not
+  yet exist. Reuse `BaseImporter`'s design; don't reinvent.
+- **Downloader coverage** for GDC/GEO/SRA/CDA/Xena already exists — so the plan's
+  per-source work is now mostly the **builder** half (produce §4-conformant manifest +
+  metadata) for each source, feeding the existing downloader.
+- The builder's `net.py` TEMP note and the contract-test mirroring can be replaced by
+  importing the real `gacdi.*` modules — **once the packaging relationship is decided**
+  (see §8.2).
+
+### 8.2 ⛔ OPEN DECISION — how the two packages relate (blocks deeper integration)
+Right now they are two independent installable packages (`gacdi` at root,
+`gacdi-manifest` under `cli_tools/`), each with its own `pyproject.toml`, `tests/`, and
+CI matrix leg. Almost every further integration (dedup `net.py`, contract test against
+the real parser, shared `errors`/`model`) depends on this:
+
+- **A — Two packages, builder depends on downloader.** Keep both wheels; add `gacdi` as
+  a dependency of `gacdi-manifest` so the builder imports `gacdi.net`, `gacdi.errors`,
+  `gacdi.manifest`. Least disruption; clear layering (builder → downloader).
+- **B — One package.** Fold the builder into `gacdi` as a subpackage (e.g.
+  `gacdi/builders/…`, CLI `gacdi-manifest` or `gacdi build <source>`). One wheel, one
+  test suite, maximal sharing; larger refactor and path churn.
+- **C — Status quo.** Leave fully separate; tolerate the duplicated `net.py`/`errors`.
+  No integration debt paid down.
+
+**Recommendation:** **A** now (fast, low-risk, unblocks dedup + real contract test),
+revisit **B** later if the shared surface grows. Confirm before proceeding.
+
+### 8.3 Minor post-merge cleanups noted
+- Two `LICENSE` files (root + `cli_tools/gacdi_manifest/`) — intentional per-package;
+  fine.
+- `containers.yml` unified under one Quay `ORG` (`paulocilasjr`); `tools/manifest_gdc/
+  macros.xml` `@QUAY_ORG@`/namespace must be aligned before publishing.
+- Builder still ignores `containers/` via its `.gitignore` history; the root
+  `containers/` (downloader Dockerfiles) is tracked and authoritative now.
