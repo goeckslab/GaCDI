@@ -13,6 +13,10 @@ authors = [{ name = "GaCDI contributors" }]
 keywords = ["galaxy", "cancer", "gdc", "manifest", "cbioportal", "tcga", "nci"]
 dependencies = [
     "requests>=2.28",
+    # Shared foundation (HTTP session, GDC manifest parser, history summary
+    # contract). In this monorepo install the root `gacdi` package editable
+    # alongside this one (see README / CI).
+    "gacdi>=0.1.0",
 ]
 
 [project.optional-dependencies]
