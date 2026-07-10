@@ -216,27 +216,38 @@ shape plan §5 describes:
 - **Downloader coverage** for GDC/GEO/SRA/CDA/Xena already exists — so the plan's
   per-source work is now mostly the **builder** half (produce §4-conformant manifest +
   metadata) for each source, feeding the existing downloader.
-- The builder's `net.py` TEMP note and the contract-test mirroring can be replaced by
-  importing the real `gacdi.*` modules — **once the packaging relationship is decided**
-  (see §8.2).
+- The builder's `net.py` TEMP note and the contract-test mirroring *could* be replaced by
+  importing the real `gacdi.*` modules — but that coupling is **deliberately deferred** to
+  preserve the `manifest_tool` architecture (see §8.2).
 
-### 8.2 ⛔ OPEN DECISION — how the two packages relate (blocks deeper integration)
-Right now they are two independent installable packages (`gacdi` at root,
-`gacdi-manifest` under `cli_tools/`), each with its own `pyproject.toml`, `tests/`, and
-CI matrix leg. Almost every further integration (dedup `net.py`, contract test against
-the real parser, shared `errors`/`model`) depends on this:
+### 8.2 DECIDED — keep the two packages decoupled (preserve `manifest_tool` architecture)
+The two are independent installable packages (`gacdi` at root, `gacdi-manifest` under
+`cli_tools/`), each with its own `pyproject.toml`, `tests/`, and CI matrix leg.
 
-- **A — Two packages, builder depends on downloader.** Keep both wheels; add `gacdi` as
-  a dependency of `gacdi-manifest` so the builder imports `gacdi.net`, `gacdi.errors`,
-  `gacdi.manifest`. Least disruption; clear layering (builder → downloader).
-- **B — One package.** Fold the builder into `gacdi` as a subpackage (e.g.
-  `gacdi/builders/…`, CLI `gacdi-manifest` or `gacdi build <source>`). One wheel, one
-  test suite, maximal sharing; larger refactor and path churn.
-- **C — Status quo.** Leave fully separate; tolerate the duplicated `net.py`/`errors`.
-  No integration debt paid down.
+**Decision (maintainer):** keep them **decoupled** for now. The manifest builder must stay
+architecturally identical to how it exists on `manifest_tool` — self-contained, importing
+nothing from `gacdi` — so that (a) `NIH_commons` stays a conflict-free fast-forward of
+`manifest_tool`, and (b) the builder's architecture is preserved, not forked. All new work
+happens on `NIH_commons`; **`manifest_tool` is not touched**.
 
-**Recommendation:** **A** now (fast, low-risk, unblocks dedup + real contract test),
-revisit **B** later if the shared surface grows. Confirm before proceeding.
+> History note: an earlier commit (`e00cc6f`, "packaging option A") made the builder depend
+> on `gacdi` (net.py shim, real-import contract test, `gacdi` dependency). It was **reverted**
+> (`3df325a`) to honour the architecture-preservation decision. The builder module dir now
+> differs from `manifest_tool` by exactly one file — `gdc.py` (the T0.5 deterministic sort).
+
+Options kept on the table for a *later*, deliberate integration (not now):
+- **A — builder depends on downloader** (import `gacdi.net`/`gacdi.manifest`). Reverted; the
+  duplicated `net.py` and mirrored contract test stay until a formal integration pass.
+- **B — one package** (fold builder into `gacdi/builders/…`). Larger refactor.
+- Until then the duplication (`net.py` in both packages; contract test *mirrors* the real
+  `gacdi.manifest`/`gacdi.history` rather than importing them) is **intentional**, and the
+  mirror is kept accurate against the real modules.
+
+**Architecture direction for going multi-source on the builder:** mirror the downloader's
+`gacdi/base.py` + registry pattern *inside the builder package* (`cli_tools/gacdi_manifest/`)
+— a builder-side base/registry that turns a query into manifest rows — rather than reaching
+across into `gacdi`. This keeps both halves architecturally parallel but independently
+installable.
 
 ### 8.3 Minor post-merge cleanups noted
 - Two `LICENSE` files (root + `cli_tools/gacdi_manifest/`) — intentional per-package;
