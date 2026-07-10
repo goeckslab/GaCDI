@@ -100,10 +100,7 @@ docker run --rm gacdi-manifest:dev gacdi-manifest gdc --help
 ## Development
 
 ```bash
-# The builder depends on the sibling `gacdi` package (shared HTTP/manifest/model
-# utilities). In this monorepo, install it editable first, from the repo root:
-python -m pip install -e .                       # installs gacdi (repo root)
-python -m pip install -e 'cli_tools/gacdi_manifest[dev]'
+python -m pip install -e '.[dev]'
 pytest -q                            # mocked; no network
 planemo lint tools/manifest_gdc
 ```
