@@ -127,16 +127,25 @@ def write_report(
     if database_total is not None:
         add("summary", "files_matching_filters", database_total)
     if merged_rows is not None:
-        total_bytes = sum(int(r["size"]) for r in merged_rows if str(r.get("size", "")).isdigit())
-        add("summary", "files_in_manifest", len(merged_rows))
+        # Metadata is one row per (file x sample); dedup by file_id for file-level
+        # counts so a multi-sample file isn't counted (or its bytes summed) twice.
+        size_by_file: dict[str, str] = {}
+        for r in merged_rows:
+            size_by_file.setdefault(r.get("file_id", ""), r.get("size", ""))
+        total_bytes = sum(int(s) for s in size_by_file.values() if str(s).isdigit())
+        add("summary", "files_in_manifest", len(size_by_file))
+        add("summary", "metadata_rows", len(merged_rows))
         add("summary", "total_download_size", _human_size(total_bytes))
         add("summary", "total_download_bytes", total_bytes)
     if report is not None:
-        total = report.total_files or (len(merged_rows) if merged_rows else 0)
+        # matched_files counts rows; the denominator is therefore total rows.
+        total_rows = len(merged_rows) if merged_rows is not None else report.total_files
         add("summary", "files_matched_to_annotation", report.matched_files)
-        if total:
-            add("summary", "annotation_match_rate", f"{100 * report.matched_files / total:.1f}%")
+        if total_rows:
+            add("summary", "annotation_match_rate", f"{100 * report.matched_files / total_rows:.1f}%")
         add("summary", "files_unmatched", len(report.unmatched_files))
+        if report.multi_sample_files:
+            add("summary", "multi_sample_files", report.multi_sample_files)
         if enrichment_columns is not None:
             add("summary", "annotation_columns_added", len(enrichment_columns))
         add("summary", "annotations_unused", len(report.unused_annotations))

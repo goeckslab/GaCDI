@@ -36,6 +36,76 @@ def _first_match(row: dict, pattern: re.Pattern) -> str | None:
     return None
 
 
+def _get(row: dict, key: str) -> str:
+    """Return a single flattened value as a stripped string ('' when absent)."""
+    value = row.get(key)
+    return str(value).strip() if value not in (None, "") else ""
+
+
+_CASE_INDEX = re.compile(r"^cases\.(\d+)\.")
+
+
+def _indices(row: dict, pattern: re.Pattern) -> list[int]:
+    """Return the sorted distinct capture-group indices matched by *pattern*."""
+    seen: set[int] = set()
+    for key in row:
+        m = pattern.match(key)
+        if m:
+            seen.add(int(m.group(1)))
+    return sorted(seen)
+
+
+def _case_record(row: dict, prefix: str) -> dict:
+    """Case-level clinical fields under *prefix* (e.g. 'cases.0' or 'cases')."""
+    return {
+        "case_id": _get(row, f"{prefix}.case_id"),
+        "case_barcode": _get(row, f"{prefix}.submitter_id"),
+        "primary_site": _get(row, f"{prefix}.primary_site"),
+        "disease_type": _get(row, f"{prefix}.disease_type"),
+        "project": _get(row, f"{prefix}.project.project_id"),
+        "gender": _get(row, f"{prefix}.demographic.gender"),
+        "race": _get(row, f"{prefix}.demographic.race"),
+        "ethnicity": _get(row, f"{prefix}.demographic.ethnicity"),
+        "vital_status": _get(row, f"{prefix}.demographic.vital_status"),
+        "age_at_diagnosis": _get(row, f"{prefix}.diagnoses.0.age_at_diagnosis") or _get(row, f"{prefix}.diagnoses.age_at_diagnosis"),
+        "primary_diagnosis": _get(row, f"{prefix}.diagnoses.0.primary_diagnosis") or _get(row, f"{prefix}.diagnoses.primary_diagnosis"),
+        "stage": _get(row, f"{prefix}.diagnoses.0.ajcc_pathologic_stage") or _get(row, f"{prefix}.diagnoses.ajcc_pathologic_stage"),
+        "grade": _get(row, f"{prefix}.diagnoses.0.tumor_grade") or _get(row, f"{prefix}.diagnoses.tumor_grade"),
+    }
+
+
+def enumerate_samples(row: dict) -> list[dict]:
+    """Expand a flattened GDC file row into one record per (case, sample).
+
+    Each record carries that case's clinical fields plus the sample's ids/type, so
+    a file derived from several samples produces one metadata row per sample rather
+    than silently collapsing to the first. A case with no samples still yields one
+    record (empty sample fields), and a row with no indexed case falls back to the
+    unprefixed form — so every file always produces at least one record.
+    """
+    records: list[dict] = []
+    for ci in _indices(row, _CASE_INDEX):
+        case = _case_record(row, f"cases.{ci}")
+        sample_idx = _indices(row, re.compile(rf"^cases\.{ci}\.samples\.(\d+)\."))
+        if not sample_idx:
+            records.append({**case, "sample_id": "", "sample_barcode": "", "sample_type": ""})
+        for sj in sample_idx:
+            records.append({
+                **case,
+                "sample_id": _get(row, f"cases.{ci}.samples.{sj}.sample_id"),
+                "sample_barcode": _get(row, f"cases.{ci}.samples.{sj}.submitter_id"),
+                "sample_type": _get(row, f"cases.{ci}.samples.{sj}.sample_type"),
+            })
+    if not records:
+        records.append({
+            **_case_record(row, "cases"),
+            "sample_id": _get(row, "cases.samples.sample_id"),
+            "sample_barcode": _get(row, "cases.samples.submitter_id"),
+            "sample_type": _get(row, "cases.samples.sample_type"),
+        })
+    return records
+
+
 def field_value(row: dict, name: str) -> str | None:
     """Return a flat (file-level) field value, e.g. ``data_format`` or ``platform``."""
     value = row.get(name)

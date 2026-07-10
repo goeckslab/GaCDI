@@ -35,6 +35,27 @@ def test_join_matches_and_reports():
     assert merged[1]["SUBTYPE"] == "" and merged[1]["matched"] == "no"
 
 
+def test_join_expands_multi_sample_file_to_one_row_each():
+    # A pooled file covering two samples must yield two metadata rows (not one),
+    # and the report must flag it as multi-sample.
+    fr = FileRow(
+        file_id="poolA", filename="pool.maf", md5="x", size="10", state="released",
+        meta={
+            "cases.0.samples.0.submitter_id": "TCGA-E9-A5FL-01A",
+            "cases.0.samples.1.submitter_id": "TCGA-XX-YYYY-01A",
+        },
+    )
+    annotations = {"TCGA-E9-A5FL-01": {"SUBTYPE": "Basal"}}
+    merged, report = join([fr], annotations, level="sample", trim_vial=True, annotation_columns=["SUBTYPE"])
+    assert len(merged) == 2                     # one row per sample
+    assert {r["sample_barcode"] for r in merged} == {"TCGA-E9-A5FL-01A", "TCGA-XX-YYYY-01A"}
+    assert report.total_files == 1
+    assert report.multi_sample_files == 1
+    assert report.matched_files == 1            # only the first sample matched
+    # Both rows carry the same file id (manifest stays one row per file).
+    assert {r["file_id"] for r in merged} == {"poolA"}
+
+
 def test_join_reports_unused_annotation():
     rows = [_filerow("uuid1", "TCGA-E9-A5FL-01A")]
     annotations = {"TCGA-ZZ-0000-01": {"SUBTYPE": "LumA"}}

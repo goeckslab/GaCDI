@@ -10,24 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .model import (
-    FileRow,
-    age_at_diagnosis,
-    case_id,
-    disease_type,
-    ethnicity,
-    field_value,
-    gender,
-    grade,
-    primary_diagnosis,
-    primary_site,
-    project_id,
-    race,
-    sample_id,
-    sample_type,
-    stage,
-    vital_status,
-)
+from .model import FileRow, enumerate_samples, field_value
 
 # TCGA barcodes have the fixed ``PROG-TSS-Participant[-Sample...]`` shape we slice
 # on. Anything else (TARGET/CPTAC/HCMI submitter ids, plain UUIDs) is passed
@@ -66,10 +49,11 @@ def normalize_barcode(barcode: str | None, level: str = "sample", trim_vial: boo
 @dataclass
 class JoinReport:
     total_files: int = 0
-    matched_files: int = 0
-    unmatched_files: list[str] = field(default_factory=list)  # file_id (barcode)
+    matched_files: int = 0  # matched (file x sample) rows
+    unmatched_files: list[str] = field(default_factory=list)  # file_id of unmatched rows
     unused_annotations: list[str] = field(default_factory=list)  # annotation keys never matched
     collisions: list[str] = field(default_factory=list)  # norm keys with conflicting annotations
+    multi_sample_files: int = 0  # files that expanded to >1 (file x sample) row
 
 
 def _index_annotations(
@@ -107,15 +91,8 @@ def join(
     merged: list[dict] = []
 
     for fr in file_rows:
-        barcode = fr.sample_barcode or fr.case_barcode
-        key = normalize_barcode(barcode, level, trim_vial)
-        attrs = index.get(key) if key else None
-        if attrs is not None:
-            report.matched_files += 1
-            used_keys.add(key)
-        else:
-            report.unmatched_files.append(fr.file_id)
-        row = {
+        # File-level columns are shared by every (file x sample) row this file emits.
+        file_cols = {
             "file_id": fr.file_id,
             "filename": fr.filename,
             "md5": fr.md5,
@@ -128,27 +105,24 @@ def join(
             "experimental_strategy": field_value(fr.meta, "experimental_strategy") or "",
             "workflow_type": field_value(fr.meta, "analysis.workflow_type") or "",
             "platform": field_value(fr.meta, "platform") or "",
-            "case_id": case_id(fr.meta) or "",
-            "case_barcode": fr.case_barcode or "",
-            "sample_id": sample_id(fr.meta) or "",
-            "sample_barcode": fr.sample_barcode or "",
-            "sample_type": sample_type(fr.meta) or "",
-            "primary_site": primary_site(fr.meta) or "",
-            "disease_type": disease_type(fr.meta) or "",
-            "project": project_id(fr.meta) or "",
-            "gender": gender(fr.meta) or "",
-            "race": race(fr.meta) or "",
-            "ethnicity": ethnicity(fr.meta) or "",
-            "vital_status": vital_status(fr.meta) or "",
-            "age_at_diagnosis": age_at_diagnosis(fr.meta) or "",
-            "primary_diagnosis": primary_diagnosis(fr.meta) or "",
-            "stage": stage(fr.meta) or "",
-            "grade": grade(fr.meta) or "",
-            "matched": "yes" if attrs is not None else "no",
         }
-        for col in ann_cols:
-            row[col] = (attrs or {}).get(col, "")
-        merged.append(row)
+        sample_records = enumerate_samples(fr.meta)
+        if len(sample_records) > 1:
+            report.multi_sample_files += 1
+
+        for srec in sample_records:
+            barcode = srec["sample_barcode"] or srec["case_barcode"]
+            key = normalize_barcode(barcode, level, trim_vial)
+            attrs = index.get(key) if key else None
+            if attrs is not None:
+                report.matched_files += 1
+                used_keys.add(key)
+            else:
+                report.unmatched_files.append(fr.file_id)
+            row = {**file_cols, **srec, "matched": "yes" if attrs is not None else "no"}
+            for col in ann_cols:
+                row[col] = (attrs or {}).get(col, "")
+            merged.append(row)
 
     report.unused_annotations = [k for k in index if k not in used_keys]
     return merged, report

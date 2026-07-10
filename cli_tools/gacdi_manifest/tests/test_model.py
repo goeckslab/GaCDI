@@ -24,6 +24,34 @@ def test_barcode_extraction_from_flattened_row():
     assert project_id(row) == "TCGA-BRCA"
 
 
+def test_enumerate_samples_multi_sample_file():
+    from gacdi_manifest.model import enumerate_samples
+
+    # One case with two samples + one case with one sample -> three records, each
+    # carrying its own case's clinical fields.
+    row = {
+        "cases.0.case_id": "c0",
+        "cases.0.submitter_id": "TCGA-AA-0000",
+        "cases.0.demographic.gender": "female",
+        "cases.0.samples.0.sample_id": "s0", "cases.0.samples.0.submitter_id": "TCGA-AA-0000-01A",
+        "cases.0.samples.1.sample_id": "s1", "cases.0.samples.1.submitter_id": "TCGA-AA-0000-11A",
+        "cases.1.case_id": "c1",
+        "cases.1.submitter_id": "TCGA-BB-1111",
+        "cases.1.samples.0.sample_id": "s2", "cases.1.samples.0.submitter_id": "TCGA-BB-1111-01A",
+    }
+    recs = enumerate_samples(row)
+    assert [r["sample_id"] for r in recs] == ["s0", "s1", "s2"]
+    assert [r["case_id"] for r in recs] == ["c0", "c0", "c1"]
+    assert recs[0]["gender"] == "female" and recs[2]["gender"] == ""
+
+
+def test_enumerate_samples_always_yields_one_record():
+    from gacdi_manifest.model import enumerate_samples
+
+    # A file with no case/sample info still yields exactly one (empty) record.
+    assert len(enumerate_samples({})) == 1
+
+
 def test_uuid_extraction_from_flattened_row():
     row = {
         "cases.0.case_id": "c-uuid-1",
