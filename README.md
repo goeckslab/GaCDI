@@ -13,6 +13,24 @@ Every tool emits the same two outputs: a **dataset collection** of the downloade
 files plus a **summary** table (one row per file: identifier, filename, status,
 size, checksum, source).
 
+## Two halves: build a manifest, then import it
+
+GaCDI has two complementary halves that share one design:
+
+1. **Manifest Builder** (`cli_tools/gacdi_manifest/`, CLI `gacdi-manifest`) — queries
+   a repository with user-defined filters and emits a lean **download manifest** plus
+   a rich **metadata** table (harmonized clinical core + source-native passthrough).
+   It does *not* download; the manifest is its contract to the importer. See
+   [cli_tools/gacdi_manifest/README.md](cli_tools/gacdi_manifest/README.md) and the
+   frozen output contracts in
+   [cli_tools/gacdi_manifest/docs/CONTRACTS.md](cli_tools/gacdi_manifest/docs/CONTRACTS.md).
+2. **Importer / downloader** (`gacdi/`, CLI `gacdi`) — consumes a manifest (or
+   accession/query), streams the files with retries and checksum verification, and
+   stages a Galaxy dataset collection + summary.
+
+Pipeline: `gacdi-manifest <source> …` → `manifest.txt` → `gacdi <source> --input-mode
+manifest --manifest manifest.txt …` → collection, joined back to `metadata.tsv`.
+
 ## Supported repositories
 
 | Tool | Repository | Input modes | Backend |

@@ -1,0 +1,289 @@
+<tool id="gacdi_manifest_gdc" name="GaCDI Manifest Builder (GDC)" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>build a filtered GDC download manifest and enriched metadata table</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code"><![CDATA[
+        gacdi-manifest gdc
+            #if str($core.project).strip() != ''
+                --project '$core.project'
+            #end if
+            #if str($core.data_category) != ''
+                --data-category '$core.data_category'
+            #end if
+            #if str($core.data_type).strip() != ''
+                --data-type '$core.data_type'
+            #end if
+            #if str($core.access) != ''
+                --access '$core.access'
+            #end if
+            #if str($adv.primary_site).strip() != ''
+                --primary-site '$adv.primary_site'
+            #end if
+            #if str($adv.disease_type).strip() != ''
+                --disease-type '$adv.disease_type'
+            #end if
+            #if str($adv.experimental_strategy) != ''
+                --experimental-strategy '$adv.experimental_strategy'
+            #end if
+            #if str($adv.workflow_type).strip() != ''
+                --workflow-type '$adv.workflow_type'
+            #end if
+            #if str($adv.platform).strip() != ''
+                --platform '$adv.platform'
+            #end if
+            #if str($adv.data_format) != ''
+                --data-format '$adv.data_format'
+            #end if
+            #if str($adv.sample_type).strip() != ''
+                --sample-type '$adv.sample_type'
+            #end if
+            #for $ef in $adv.extra_filters
+                --extra-filter 'field=${ef.field};op=${ef.op};values=${ef.values}'
+            #end for
+            #if $adv.raw_filters
+                --raw-filters '$adv.raw_filters'
+            #end if
+            #if $count_only
+                --count-only
+            #else
+                #if str($adv.max_files) != ''
+                    --max-files $adv.max_files
+                #end if
+            #end if
+            #if $adv.enrich.enable == 'yes'
+                #if $adv.enrich.cbio.use == 'yes'
+                    --cbioportal-study '$adv.enrich.cbio.study'
+                    #if str($adv.enrich.cbio.attrs).strip() != ''
+                        --cbioportal-attrs '$adv.enrich.cbio.attrs'
+                    #end if
+                #end if
+                #if $adv.enrich.table.use == 'yes'
+                    --annotation-tsv '$adv.enrich.table.tsv'
+                    --annotation-key-col '$adv.enrich.table.key_col'
+                #end if
+                --join-level '$adv.enrich.join_level'
+                #if not $adv.enrich.trim_vial
+                    --no-trim-vial
+                #end if
+            #end if
+            --manifest-out '$manifest'
+            --metadata-out '$metadata'
+            --report-out '$report'
+    ]]></command>
+    <inputs>
+        <section name="core" title="What to download" expanded="true">
+            <param name="project" type="text" value="" label="Project"
+                   help="GDC project to pull from, e.g. TCGA-BRCA. Only files from this project are included. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="data_category" type="select" label="Data category"
+                   help="Broad kind of data. Narrows the manifest to this category.">
+                <option value="" selected="true">Any</option>
+                <option value="Biospecimen">Biospecimen</option>
+                <option value="Clinical">Clinical</option>
+                <option value="Copy Number Variation">Copy Number Variation</option>
+                <option value="DNA Methylation">DNA Methylation</option>
+                <option value="Sequencing Reads">Sequencing Reads</option>
+                <option value="Simple Nucleotide Variation">Simple Nucleotide Variation</option>
+                <option value="Structural Variation">Structural Variation</option>
+                <option value="Transcriptome Profiling">Transcriptome Profiling</option>
+            </param>
+            <param name="data_type" type="text" value="" label="Data type"
+                   help="The specific files to download, e.g. Slide Image or Gene Expression Quantification. Usually your main choice.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="access" type="select" label="Access"
+                   help="Open files download freely; controlled files need a token at download time.">
+                <option value="" selected="true">Any</option>
+                <option value="open">open</option>
+                <option value="controlled">controlled</option>
+            </param>
+        </section>
+        <param name="count_only" type="boolean" checked="false" truevalue="true" falsevalue=""
+               label="Preview counts only (don't build the manifest yet)"
+               help="Reports how many files match, with a breakdown, so you can refine filters before building the full manifest."/>
+        <section name="adv" title="Advanced options" expanded="false">
+            <param name="primary_site" type="text" value="" label="Primary site"
+                   help="Keep only cases from this anatomic site, e.g. Breast or Lung. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="disease_type" type="text" value="" label="Disease type"
+                   help="Keep only this disease classification, e.g. Ductal and Lobular Neoplasms.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="experimental_strategy" type="select" label="Experimental strategy"
+                   help="Keep only files produced by this assay.">
+                <option value="" selected="true">Any</option>
+                <option value="WXS">WXS</option>
+                <option value="WGS">WGS</option>
+                <option value="RNA-Seq">RNA-Seq</option>
+                <option value="miRNA-Seq">miRNA-Seq</option>
+                <option value="Genotyping Array">Genotyping Array</option>
+                <option value="Methylation Array">Methylation Array</option>
+                <option value="Diagnostic Slide">Diagnostic Slide</option>
+                <option value="Tissue Slide">Tissue Slide</option>
+            </param>
+            <param name="workflow_type" type="text" value="" label="Analysis workflow type"
+                   help="Keep only files from this analysis pipeline, e.g. 'STAR - Counts'. Picks one processing variant.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="platform" type="text" value="" label="Platform"
+                   help="Keep only this sequencing/array platform, e.g. Illumina.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="data_format" type="select" label="Data format"
+                   help="Keep only this file format.">
+                <option value="" selected="true">Any</option>
+                <option value="BAM">BAM</option>
+                <option value="VCF">VCF</option>
+                <option value="MAF">MAF</option>
+                <option value="TXT">TXT</option>
+                <option value="TSV">TSV</option>
+                <option value="SVS">SVS</option>
+                <option value="IDAT">IDAT</option>
+                <option value="BCR XML">BCR XML</option>
+            </param>
+            <param name="sample_type" type="text" value="" label="Sample type"
+                   help="Keep only this sample kind, e.g. Primary Tumor or Solid Tissue Normal.">
+                <expand macro="safe_text"/>
+            </param>
+            <repeat name="extra_filters" title="Custom filter" min="0"
+                    help="Filter on any other GDC field not listed above.">
+                <param name="field" type="text" value="" label="GDC field"
+                       help="GDC field name, e.g. cases.samples.sample_type.">
+                    <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
+                </param>
+                <param name="op" type="select" label="Match or exclude"
+                       help="Keep files matching the values, or exclude them.">
+                    <option value="in">is one of (in)</option>
+                    <option value="exclude">is not (exclude)</option>
+                </param>
+                <param name="values" type="text" value="" label="Value(s)"
+                       help="Values to match, comma-separated.">
+                    <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
+                </param>
+            </repeat>
+            <param name="raw_filters" type="data" format="json,txt" optional="true"
+                   label="Raw GDC filters JSON"
+                   help="Power users: a full GDC 'filters' object, combined (AND) with the options above."/>
+            <conditional name="enrich">
+                <param name="enable" type="select" label="Add clinical/annotation columns to the metadata?"
+                       help="Adds per-sample columns (subtype, receptor status, your own labels). Does not change which files are downloaded.">
+                    <option value="no" selected="true">No — file metadata only</option>
+                    <option value="yes">Yes — join annotations</option>
+                </param>
+                <when value="no"/>
+                <when value="yes">
+                    <conditional name="cbio">
+                        <param name="use" type="select" label="Add cBioPortal subtype/clinical columns?"
+                               help="Pulls curated per-sample attributes (e.g. PAM50 subtype, ER/PR/HER2 status) from one cBioPortal study.">
+                            <option value="no" selected="true">No</option>
+                            <option value="yes">Yes</option>
+                        </param>
+                        <when value="no"/>
+                        <when value="yes">
+                            <param name="study" type="text" value="" label="cBioPortal study id(s) (required)"
+                                   help="One id, or comma-separate several to COMBINE them, e.g. brca_tcga_pan_can_atlas_2018,brca_tcga (PAM50 subtype + ER/PR/HER2 IHC). Ids only — no flag, no spaces inside an id. Find each in its cBioPortal URL after 'id='.">
+                                <expand macro="safe_text"/>
+                                <validator type="empty_field"/>
+                                <validator type="regex" message="Enter study id(s) only, e.g. brca_tcga or a,b,c — no spaces inside an id, no flag names.">^\s*[A-Za-z0-9_.-]+(\s*,\s*[A-Za-z0-9_.-]+)*\s*$</validator>
+                            </param>
+                            <param name="attrs" type="text" value="" optional="true"
+                                   label="Which attributes to add"
+                                   help="Comma-separated ids, e.g. SUBTYPE,ER_STATUS_BY_IHC,PR_STATUS_BY_IHC. Leave blank (or type 'all') for every attribute.">
+                                <expand macro="safe_text"/>
+                            </param>
+                        </when>
+                    </conditional>
+                    <conditional name="table">
+                        <param name="use" type="select" label="Merge your own annotation table?"
+                               help="Adds columns from a TSV you upload (e.g. histology labels not in any API), matched by barcode.">
+                            <option value="no" selected="true">No</option>
+                            <option value="yes">Yes</option>
+                        </param>
+                        <when value="no"/>
+                        <when value="yes">
+                            <param name="tsv" type="data" format="tabular,txt"
+                                   label="Annotation table (TSV, required)"
+                                   help="A per-sample table; one of its columns holds the barcode used for matching."/>
+                            <param name="key_col" type="text" value="sample"
+                                   label="Barcode column in your table (required)"
+                                   help="Name of the column holding the sample/patient barcode.">
+                                <expand macro="safe_text"/>
+                                <validator type="empty_field"/>
+                            </param>
+                        </when>
+                    </conditional>
+                    <param name="join_level" type="select" label="Annotation join level"
+                           help="How precisely annotations are matched to each file.">
+                        <option value="sample" selected="true">Sample (TCGA-XX-XXXX-01)</option>
+                        <option value="patient">Patient (TCGA-XX-XXXX)</option>
+                        <option value="full">Full barcode</option>
+                    </param>
+                    <param name="trim_vial" type="boolean" checked="true" truevalue="true" falsevalue=""
+                           label="Treat 01A and 01 as the same sample"
+                           help="Ignore the vial letter when matching annotations (recommended)."/>
+                </when>
+            </conditional>
+            <param name="max_files" type="integer" value="" optional="true" min="1"
+                   label="Maximum number of files"
+                   help="Stop after this many files — handy for a quick test. Leave blank for all matches."/>
+        </section>
+    </inputs>
+    <outputs>
+        <data name="manifest" format="txt" label="${tool.name} on ${on_string}: GDC manifest"/>
+        <data name="metadata" format="tabular" label="${tool.name} on ${on_string}: metadata"/>
+        <data name="report" format="tabular" label="${tool.name} on ${on_string}: report"/>
+    </outputs>
+    <tests>
+        <!-- Live preview: light GDC count/facet calls; run with `planemo test`. -->
+        <test>
+            <section name="core">
+                <param name="project" value="TCGA-BRCA"/>
+                <param name="data_type" value="Slide Image"/>
+            </section>
+            <param name="count_only" value="true"/>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="files_matching_filters"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI Manifest Builder (GDC)**
+
+Builds a **targeted** download manifest from the NCI `Genomic Data Commons
+<https://gdc.cancer.gov/>`_ by filtering, so you fetch exactly the files you want
+instead of a whole dataset. It produces three outputs:
+
+1. **GDC manifest** — strict ``id / filename / md5 / size / state`` format, ready
+   to feed straight into the **GaCDI GDC** importer or ``gdc-client``.
+2. **metadata** — a research table joining the file records to sample barcodes and
+   any clinical/molecular annotations you enable (GDC fields, cBioPortal subtypes
+   such as PAM50 and ER/PR/HER2, and/or an uploaded annotation table). It also
+   carries workflow-relevant columns — ``data_format``, ``data_type``,
+   ``experimental_strategy``, ``workflow_type``, ``platform``, ``primary_site``,
+   ``disease_type`` — and a ``galaxy_ext`` column giving the best-effort Galaxy
+   datatype for each file, so downstream tools know how to interpret it.
+3. **report** — match/precision QC: counts, unmatched files, unused annotations
+   and colliding keys. In *Preview counts only* mode this holds the match count and
+   a facet breakdown so you can refine filters cheaply before building.
+
+**Getting started**
+
+Fill in **What to download** (usually a *Project* plus a *Data type*) and run with
+*Preview counts only* first to see how many files match. When the count looks right,
+turn the preview off to build the manifest. Everything under **Advanced options** —
+extra filters, custom/raw filters, and clinical/annotation enrichment — is optional.
+
+**Why two files?** ``gdc-client`` rejects a manifest that contains extra clinical
+columns or lacks ``state`` — so the lean manifest is kept separate from the rich
+metadata table, which you join to the downloaded files afterwards by barcode.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

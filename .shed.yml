@@ -1,13 +1,14 @@
 name: gacdi
 owner: paulocilasjr
-description: Galaxy Cancer Data Importers — import NIH/NCI cancer datasets into Galaxy histories.
+description: Galaxy Cancer Data Importers — build manifests for, and import, NIH/NCI cancer datasets in Galaxy.
 long_description: |
-  GaCDI provides Galaxy tools for importing cancer datasets from major public and
-  controlled-access cancer data repositories (GDC, GEO, SRA, the Cancer Data Aggregator and
-  UCSC Xena in this release) directly
-  into Galaxy histories, ready for downstream analyses and workflows. Each tool shares a
-  common downloader that streams files with retries and checksum verification and emits a
-  dataset collection plus a provenance summary.
+  GaCDI provides Galaxy tools for working with major public and controlled-access cancer data
+  repositories (GDC, GEO, SRA, the Cancer Data Aggregator and UCSC Xena in this release). It has
+  two complementary halves: a **Manifest Builder** that queries a repository with user-defined
+  filters and emits a targeted download manifest plus an enriched clinical/metadata table, and a
+  common **importer/downloader** that consumes a manifest (or accession/query) and streams the
+  files with retries and checksum verification into a Galaxy dataset collection plus a provenance
+  summary.
 homepage_url: https://github.com/paulocilasjr/GaCDI
 remote_repository_url: https://github.com/paulocilasjr/GaCDI
 type: unrestricted
@@ -18,7 +19,7 @@ auto_tool_repositories:
   description_template: "{{ tool_name }}: {{ tool_description }}"
 suite:
   name: suite_gacdi
-  description: Galaxy Cancer Data Importers (GDC, GEO, SRA, CDA, Xena)
+  description: Galaxy Cancer Data Importers (manifest builder + GDC, GEO, SRA, CDA, Xena importers)
   long_description: |
-    A suite of Galaxy tools for importing datasets from NIH/NCI cancer data repositories
-    into Galaxy histories.
+    A suite of Galaxy tools for building manifests for and importing datasets from NIH/NCI cancer
+    data repositories into Galaxy histories.

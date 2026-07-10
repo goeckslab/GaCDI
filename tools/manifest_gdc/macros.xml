@@ -1,0 +1,41 @@
+<macros>
+    <token name="@TOOL_VERSION@">0.1.0</token>
+    <token name="@VERSION_SUFFIX@">0</token>
+    <token name="@PROFILE@">22.05</token>
+
+    <!--
+      The tool runs from the prebuilt Quay image, which bundles Python + the
+      gacdi_manifest package (providing the `gacdi-manifest` entrypoint). There is
+      no Conda package for it, so the container is the sole runtime.
+    -->
+    <xml name="requirements">
+        <requirements>
+            <container type="docker">quay.io/goeckslab/gacdi-manifest:@TOOL_VERSION@</container>
+        </requirements>
+    </xml>
+
+    <!-- Permissive text sanitizer that still blocks shell-dangerous characters. -->
+    <xml name="safe_text">
+        <sanitizer invalid_char="_">
+            <valid initial="string.printable">
+                <remove value="&apos;"/>
+                <remove value="&quot;"/>
+                <remove value="`"/>
+                <remove value="$"/>
+                <remove value="\"/>
+            </valid>
+        </sanitizer>
+    </xml>
+
+    <xml name="citations">
+        <citations>
+            <citation type="bibtex"><![CDATA[
+@misc{gacdi,
+  title  = {GaCDI: Galaxy Cancer Data Importers},
+  author = {GaCDI contributors},
+  url    = {https://github.com/paulocilasjr/GaCDI}
+}
+            ]]></citation>
+        </citations>
+    </xml>
+</macros>
