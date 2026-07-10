@@ -23,6 +23,20 @@ def test_facets(gdc_api):
     assert f["data_type"]["Slide Image"] == 2
 
 
+def test_query_is_server_sorted_for_deterministic_capping(gdc_api):
+    # --max-files must cap a stable server-side order, not GDC's default order.
+    session = requests.Session()
+    filters = build_filters(project="TCGA-BRCA", data_type="Slide Image")
+    gdc.query_files(session, filters, max_files=1)
+    # The paged file request (the one carrying "fields") must request a sort.
+    file_requests = [
+        r.json() for r in gdc_api.request_history
+        if r.json().get("fields")
+    ]
+    assert file_requests, "expected at least one paged file request"
+    assert file_requests[-1]["sort"] == gdc.SORT
+
+
 def test_cbioportal_merges_patient_and_sample(requests_mock):
     """SUBTYPE/ER are patient-level; they must be merged onto each sample."""
     study = "brca_tcga"

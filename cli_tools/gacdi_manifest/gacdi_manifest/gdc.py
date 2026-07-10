@@ -44,6 +44,10 @@ FIELDS = [
 
 DEFAULT_PAGE_SIZE = 500
 
+# Stable server-side order so paging and --max-files are reproducible across runs
+# (GDC's default order is unspecified). file_id is a unique, stable UUID.
+SORT = "file_id:asc"
+
 
 def _post(session: requests.Session, payload: dict, *, text: bool = False):
     try:
@@ -108,6 +112,7 @@ def query_files(
             "format": "TSV",
             "size": size,
             "from": start,
+            "sort": SORT,
         }
         text = _post(session, payload, text=True)
         reader = csv.DictReader(io.StringIO(text), delimiter="\t")
