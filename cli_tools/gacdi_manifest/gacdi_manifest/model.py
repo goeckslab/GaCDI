@@ -125,6 +125,108 @@ def galaxy_ext(filename: str | None, data_format: str | None = None) -> str:
     return "data"
 
 
+# ---------------------------------------------------------------------------
+# Cross-source output contracts (frozen in T0.1; see docs/CONTRACTS.md).
+#
+# Manifests use PER-SOURCE DIALECTS over a shared semantic SUPERSET: each source
+# populates the subset of superset fields it has, under columns suited to its
+# downloader. GDC keeps its strict, lean gdc-client/importer-compatible dialect;
+# richer sources (DRS/FTP/GCS/…) add locator + access columns directly.
+# ---------------------------------------------------------------------------
+
+# Semantic superset a manifest row may carry (documentation + validation target).
+MANIFEST_SUPERSET: tuple[str, ...] = (
+    "source",           # short source id, e.g. "gdc", "idc"
+    "file_id",          # source-native file identifier
+    "filename",
+    "drs_uri",          # GA4GH DRS URI when available (CRDC nodes)
+    "access_url",       # fallback locator: ftp/gcs/accession/synapse/nbia ref
+    "download_method",  # see DOWNLOAD_METHODS
+    "checksum",
+    "checksum_type",    # md5|sha256|etag|""
+    "size",             # bytes
+    "file_format",
+    "access",           # open|controlled (load-bearing for the downloader)
+    "case_id",          # link key to metadata
+    "sample_id",        # link key to metadata (may be empty)
+)
+
+DOWNLOAD_METHODS = frozenset(
+    {"drs", "https", "ftp", "gcs", "sra-toolkit", "synapse", "nbia"}
+)
+ACCESS_VALUES = frozenset({"open", "controlled"})
+
+# Per-source physical manifest column order (the "dialect"). GDC stays lean and
+# byte-identical to preserve the gdc-client / GaCDI-importer contract locked in
+# tests/test_importer_contract.py. New sources register their own dialect here.
+MANIFEST_DIALECTS: dict[str, list[str]] = {
+    "gdc": ["id", "filename", "md5", "size", "state"],
+}
+
+# Harmonized metadata core: best-effort populated for EVERY source. Native source
+# fields are preserved alongside as `<source>__<field>` columns (native_column).
+HARMONIZED_CORE_COLUMNS: list[str] = [
+    "source", "case_id", "sample_id", "file_id",
+    "project", "primary_site", "disease_type", "sample_type",
+    "gender", "race", "ethnicity", "vital_status",
+    "age_at_diagnosis", "primary_diagnosis", "stage", "grade",
+]
+
+
+def native_column(source: str, field_name: str) -> str:
+    """Column name for a source-native passthrough field, e.g. ``gdc__platform``."""
+    return f"{source}__{field_name}"
+
+
+@dataclass
+class ManifestRow:
+    """A downloadable file in source-agnostic (superset) terms.
+
+    Importers build these; the writer projects them onto the source's manifest
+    dialect (:data:`MANIFEST_DIALECTS`). Only ``source``/``file_id``/``filename``
+    are always required; the rest are populated when the source provides them.
+    """
+
+    source: str
+    file_id: str
+    filename: str
+    download_method: str = ""
+    drs_uri: str = ""
+    access_url: str = ""
+    checksum: str = ""
+    checksum_type: str = ""
+    size: str = ""
+    file_format: str = ""
+    access: str = ""
+    case_id: str = ""
+    sample_id: str = ""
+
+
+@dataclass
+class MetadataRecord:
+    """One (file x sample) metadata record: harmonized core + native passthrough."""
+
+    source: str
+    file_id: str
+    case_id: str = ""
+    sample_id: str = ""
+    core: dict = field(default_factory=dict)    # subset of HARMONIZED_CORE_COLUMNS
+    native: dict = field(default_factory=dict)  # raw source fields (unprefixed)
+
+    def as_row(self) -> dict:
+        """Flatten to an output row: identity + core + prefixed native columns."""
+        row: dict = {
+            "source": self.source,
+            "file_id": self.file_id,
+            "case_id": self.case_id,
+            "sample_id": self.sample_id,
+        }
+        row.update(self.core)
+        for name, value in self.native.items():
+            row[native_column(self.source, name)] = value
+        return row
+
+
 @dataclass
 class FileRow:
     """One GDC file plus the raw metadata row it came from."""
