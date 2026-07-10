@@ -11,7 +11,7 @@ import argparse
 import logging
 import sys
 
-from . import __version__
+from . import version_string
 from .base import RunConfig
 from .errors import GacdiError, InputError
 from .importers import REGISTRY, get_importer
@@ -61,7 +61,7 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="gacdi", description="Galaxy Cancer Data Importers.")
-    parser.add_argument("--version", action="version", version=f"gacdi {__version__}")
+    parser.add_argument("--version", action="version", version=f"gacdi {version_string()}")
     sub = parser.add_subparsers(dest="database", required=True, metavar="DATABASE")
     for name in sorted(REGISTRY):
         db_parser = sub.add_parser(name, help=f"Import data from {name.upper()}.")
@@ -108,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
     )
+    # Emit the running version to the job log so it is visible in Galaxy's job info.
+    log.info("gacdi %s", version_string())
 
     try:
         importer = get_importer(args.database)

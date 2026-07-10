@@ -77,3 +77,13 @@ def test_cli_gdc_dry_run(tmp_path):
 def test_cli_unknown_database():
     with pytest.raises(SystemExit):
         main(["nosuchdb"])
+
+
+def test_version_string_includes_build(monkeypatch):
+    import gacdi
+
+    monkeypatch.setattr(gacdi, "BUILD", "deadbee")
+    assert gacdi.version_string() == f"{gacdi.__version__}+deadbee"
+
+    monkeypatch.setattr(gacdi, "BUILD", "")
+    assert gacdi.version_string() == gacdi.__version__
