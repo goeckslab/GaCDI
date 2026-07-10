@@ -99,6 +99,7 @@ def write_report(
     enrichment_columns: list[str] | None = None,
     facets: dict | None = None,
     max_examples: int = 25,
+    provenance: dict | None = None,
     extra: list[tuple[str, str, str]] | None = None,
 ) -> None:
     """Write a meaningful tabular report: ``category  key  value`` rows.
@@ -115,6 +116,12 @@ def write_report(
 
     # Version stamp: lets you confirm which build of the tool actually ran.
     add("summary", "gacdi_manifest_version", version_string())
+
+    # --- provenance: what query produced these outputs, when, with what tool ----
+    # Makes every run self-describing/reproducible. Kept in the report (not the
+    # manifest/metadata, which must stay strictly tabular).
+    for key, value in (provenance or {}).items():
+        add("provenance", key, value)
 
     # --- summary -------------------------------------------------------
     if database_total is not None:

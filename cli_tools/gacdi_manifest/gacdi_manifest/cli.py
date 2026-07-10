@@ -89,6 +89,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _provenance(filters: dict) -> dict:
+    """Build the run's provenance record (source, endpoint, query, when, version)."""
+    import datetime
+
+    return {
+        "source": "gdc",
+        "endpoint": gdc.FILES_ENDPOINT,
+        "tool_version": version_string(),
+        "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "query_filters": json.dumps(filters, sort_keys=True, separators=(",", ":")),
+    }
+
+
 def _read_id_list(path: str | None) -> list[str]:
     """Read a cohort id file into a list (one id per line; blanks/#comments skipped)."""
     if not path:
@@ -154,13 +167,14 @@ def _run_gdc(args: argparse.Namespace) -> int:
         extra_filters=args.extra_filters,
         raw_filters=raw,
     )
+    prov = _provenance(filters)
 
     if args.count_only:
         total = gdc.count(session, filters)
         facet_counts = gdc.facets(session, filters, PREVIEW_FACETS)
         io.write_manifest(args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
-        io.write_report(args.report_out, database_total=total, facets=facet_counts)
+        io.write_report(args.report_out, database_total=total, facets=facet_counts, provenance=prov)
         log.info("Preview: %d file(s) match the filters.", total)
         return 0
 
@@ -183,6 +197,7 @@ def _run_gdc(args: argparse.Namespace) -> int:
         io.write_report(
             args.report_out,
             database_total=total_matching,
+            provenance=prov,
             extra=[(
                 "note",
                 "no_files_matched",
@@ -217,6 +232,7 @@ def _run_gdc(args: argparse.Namespace) -> int:
         merged_rows=merged,
         report=report,
         enrichment_columns=ann_cols,
+        provenance=prov,
     )
     log.info(
         "Built manifest with %d file(s); %d matched to annotation, %d unmatched.",

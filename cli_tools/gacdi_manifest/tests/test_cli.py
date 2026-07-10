@@ -86,6 +86,16 @@ def test_no_matches_writes_note(tmp_path, requests_mock):
     assert (tmp_path / "m.txt").read_text().strip() == "id\tfilename\tmd5\tsize\tstate"
 
 
+def test_report_carries_provenance(tmp_path, gdc_api):
+    rc = main(_args(tmp_path))
+    assert rc == 0
+    report = (tmp_path / "r.tsv").read_text()
+    assert "provenance\tsource\tgdc" in report
+    assert "provenance\tendpoint\t" in report
+    assert "provenance\tquery_filters\t" in report
+    assert "provenance\tgenerated_utc\t" in report
+
+
 def test_file_id_list_flag(tmp_path, gdc_api):
     id_file = tmp_path / "ids.txt"
     id_file.write_text("# my cohort\nuuid1\nuuid2\n")
