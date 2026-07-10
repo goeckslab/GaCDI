@@ -44,6 +44,23 @@ def test_case_site_and_disease_extraction():
     assert disease_type(row) == "Ductal and Lobular Neoplasms"
 
 
+def test_clinical_extraction_from_flattened_row():
+    from gacdi_manifest.model import age_at_diagnosis, gender, grade, stage, vital_status
+
+    row = {
+        "cases.0.demographic.gender": "female",
+        "cases.0.demographic.vital_status": "Alive",
+        "cases.0.diagnoses.0.age_at_diagnosis": "21915",
+        "cases.0.diagnoses.0.ajcc_pathologic_stage": "Stage IIA",
+        "cases.0.diagnoses.0.tumor_grade": "G2",
+    }
+    assert gender(row) == "female"
+    assert vital_status(row) == "Alive"
+    assert age_at_diagnosis(row) == "21915"
+    assert stage(row) == "Stage IIA"
+    assert grade(row) == "G2"
+
+
 def test_galaxy_ext_from_filename():
     assert galaxy_ext("TCGA-X.svs") == "svs"
     assert galaxy_ext("aligned.bam") == "bam"

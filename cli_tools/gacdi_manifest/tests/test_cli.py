@@ -48,6 +48,23 @@ def test_full_build_with_annotation(tmp_path, gdc_api):
     assert "unmatched_example\tTCGA-XX-YYYY-01A" in report
 
 
+def test_metadata_carries_gdc_native_clinical(tmp_path, gdc_api):
+    # Clinical columns come from GDC itself — no cBioPortal study supplied.
+    import csv
+
+    rc = main(_args(tmp_path))
+    assert rc == 0
+    with open(tmp_path / "md.tsv", newline="") as fh:
+        rows = {r["file_id"]: r for r in csv.DictReader(fh, delimiter="\t")}
+
+    r1 = rows["uuid1"]
+    assert r1["case_id"] == "case-uuid-1" and r1["sample_id"] == "sample-uuid-1"
+    assert r1["gender"] == "female"
+    assert r1["age_at_diagnosis"] == "21915"
+    assert r1["stage"] == "Stage IIA"
+    assert rows["uuid2"]["gender"] == "male" and rows["uuid2"]["stage"] == "Stage IIIB"
+
+
 def test_no_matches_writes_note(tmp_path, requests_mock):
     import json
 

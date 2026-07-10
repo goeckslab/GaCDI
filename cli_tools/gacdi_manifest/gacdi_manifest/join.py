@@ -12,13 +12,21 @@ from dataclasses import dataclass, field
 
 from .model import (
     FileRow,
+    age_at_diagnosis,
     case_id,
     disease_type,
+    ethnicity,
     field_value,
+    gender,
+    grade,
+    primary_diagnosis,
     primary_site,
     project_id,
+    race,
     sample_id,
     sample_type,
+    stage,
+    vital_status,
 )
 
 # TCGA barcodes have the fixed ``PROG-TSS-Participant[-Sample...]`` shape we slice
@@ -128,6 +136,14 @@ def join(
             "primary_site": primary_site(fr.meta) or "",
             "disease_type": disease_type(fr.meta) or "",
             "project": project_id(fr.meta) or "",
+            "gender": gender(fr.meta) or "",
+            "race": race(fr.meta) or "",
+            "ethnicity": ethnicity(fr.meta) or "",
+            "vital_status": vital_status(fr.meta) or "",
+            "age_at_diagnosis": age_at_diagnosis(fr.meta) or "",
+            "primary_diagnosis": primary_diagnosis(fr.meta) or "",
+            "stage": stage(fr.meta) or "",
+            "grade": grade(fr.meta) or "",
             "matched": "yes" if attrs is not None else "no",
         }
         for col in ann_cols:

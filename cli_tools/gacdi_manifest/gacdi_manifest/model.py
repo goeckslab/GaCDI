@@ -16,6 +16,17 @@ _DISEASE_TYPE = re.compile(r"^cases\.\d+\.disease_type$")
 # GDC-native UUIDs: stable join keys that don't depend on TCGA barcode structure.
 _CASE_ID = re.compile(r"^cases\.\d+\.case_id$")
 _SAMPLE_ID = re.compile(r"^cases\.\d+\.samples\.\d+\.sample_id$")
+# GDC-native clinical fields (demographic is one object per case; diagnoses is a
+# list). Pulling these means the harmonized clinical columns come from GDC itself,
+# with no cBioPortal call required.
+_GENDER = re.compile(r"^cases\.\d+\.demographic\.gender$")
+_RACE = re.compile(r"^cases\.\d+\.demographic\.race$")
+_ETHNICITY = re.compile(r"^cases\.\d+\.demographic\.ethnicity$")
+_VITAL_STATUS = re.compile(r"^cases\.\d+\.demographic\.vital_status$")
+_AGE_AT_DIAGNOSIS = re.compile(r"^cases\.\d+\.diagnoses\.\d+\.age_at_diagnosis$")
+_PRIMARY_DIAGNOSIS = re.compile(r"^cases\.\d+\.diagnoses\.\d+\.primary_diagnosis$")
+_STAGE = re.compile(r"^cases\.\d+\.diagnoses\.\d+\.ajcc_pathologic_stage$")
+_GRADE = re.compile(r"^cases\.\d+\.diagnoses\.\d+\.tumor_grade$")
 
 
 def _first_match(row: dict, pattern: re.Pattern) -> str | None:
@@ -61,6 +72,38 @@ def case_id(row: dict) -> str | None:
 
 def sample_id(row: dict) -> str | None:
     return _first_match(row, _SAMPLE_ID) or row.get("cases.samples.sample_id") or None
+
+
+def gender(row: dict) -> str | None:
+    return _first_match(row, _GENDER) or row.get("cases.demographic.gender") or None
+
+
+def race(row: dict) -> str | None:
+    return _first_match(row, _RACE) or row.get("cases.demographic.race") or None
+
+
+def ethnicity(row: dict) -> str | None:
+    return _first_match(row, _ETHNICITY) or row.get("cases.demographic.ethnicity") or None
+
+
+def vital_status(row: dict) -> str | None:
+    return _first_match(row, _VITAL_STATUS) or row.get("cases.demographic.vital_status") or None
+
+
+def age_at_diagnosis(row: dict) -> str | None:
+    return _first_match(row, _AGE_AT_DIAGNOSIS) or row.get("cases.diagnoses.age_at_diagnosis") or None
+
+
+def primary_diagnosis(row: dict) -> str | None:
+    return _first_match(row, _PRIMARY_DIAGNOSIS) or row.get("cases.diagnoses.primary_diagnosis") or None
+
+
+def stage(row: dict) -> str | None:
+    return _first_match(row, _STAGE) or row.get("cases.diagnoses.ajcc_pathologic_stage") or None
+
+
+def grade(row: dict) -> str | None:
+    return _first_match(row, _GRADE) or row.get("cases.diagnoses.tumor_grade") or None
 
 
 # Best-effort mapping of a downloaded file to a Galaxy datatype extension, so the

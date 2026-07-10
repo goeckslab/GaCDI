@@ -42,6 +42,15 @@ FIELDS = [
     "cases.project.project_id",
     "cases.primary_site",
     "cases.disease_type",
+    # GDC-native clinical (demographic + diagnosis) → harmonized metadata core.
+    "cases.demographic.gender",
+    "cases.demographic.race",
+    "cases.demographic.ethnicity",
+    "cases.demographic.vital_status",
+    "cases.diagnoses.age_at_diagnosis",
+    "cases.diagnoses.primary_diagnosis",
+    "cases.diagnoses.ajcc_pathologic_stage",
+    "cases.diagnoses.tumor_grade",
 ]
 
 DEFAULT_PAGE_SIZE = 500

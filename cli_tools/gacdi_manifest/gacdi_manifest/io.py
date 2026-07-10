@@ -58,6 +58,15 @@ BASE_METADATA_COLUMNS = [
     "primary_site",
     "disease_type",
     "project",
+    # Harmonized clinical core, populated from GDC-native demographic + diagnosis.
+    "gender",
+    "race",
+    "ethnicity",
+    "vital_status",
+    "age_at_diagnosis",
+    "primary_diagnosis",
+    "stage",
+    "grade",
     "matched",
 ]
 
