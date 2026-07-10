@@ -1,0 +1,14 @@
+name: gacdi_manifest_gdc
+owner: paulocilasjr
+description: Build a filtered GDC download manifest and an enriched clinical/metadata table.
+long_description: |
+  The GaCDI Manifest Builder queries the NCI Genomic Data Commons (GDC) files API with
+  user-defined filters and produces a targeted download manifest (id/filename/md5/size/state),
+  ready for gdc-client or the GaCDI GDC importer, together with an enriched metadata table that
+  joins sample barcodes and clinical/molecular annotations (GDC fields, cBioPortal subtypes, and
+  optional user-uploaded annotations) plus a match/precision report.
+homepage_url: https://github.com/paulocilasjr/GaCDI
+remote_repository_url: https://github.com/paulocilasjr/GaCDI
+type: unrestricted
+categories:
+  - Data Source

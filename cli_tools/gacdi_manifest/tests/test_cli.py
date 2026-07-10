@@ -1,0 +1,76 @@
+from gacdi_manifest.cli import main
+
+
+def _args(tmp_path, *extra):
+    return [
+        "gdc", "--project", "TCGA-BRCA", "--data-type", "Slide Image",
+        "--manifest-out", str(tmp_path / "m.txt"),
+        "--metadata-out", str(tmp_path / "md.tsv"),
+        "--report-out", str(tmp_path / "r.tsv"),
+        *extra,
+    ]
+
+
+def test_bad_cbioportal_study_fails_fast(tmp_path):
+    # A flag-in-value or spaces inside an id is rejected before any GDC query.
+    rc = main(_args(tmp_path, "--cbioportal-study", "cbioportal-study brca_tcga"))
+    assert rc == 2
+
+
+def test_count_only(tmp_path, gdc_api):
+    rc = main(_args(tmp_path, "--count-only"))
+    assert rc == 0
+    assert "files_matching_filters\t2" in (tmp_path / "r.tsv").read_text()
+    # manifest is header-only in preview mode
+    assert (tmp_path / "m.txt").read_text().strip() == "id\tfilename\tmd5\tsize\tstate"
+
+
+def test_full_build_with_annotation(tmp_path, gdc_api):
+    ann = tmp_path / "ann.tsv"
+    ann.write_text("sample\tHistology\nTCGA-E9-A5FL-01\tIDC\n")
+    rc = main(_args(tmp_path, "--annotation-tsv", str(ann), "--annotation-key-col", "sample"))
+    assert rc == 0
+
+    manifest = (tmp_path / "m.txt").read_text().splitlines()
+    assert manifest[0] == "id\tfilename\tmd5\tsize\tstate"
+    assert "uuid1\tA.svs\tmd5a\t100\treleased" in manifest
+
+    metadata = (tmp_path / "md.tsv").read_text()
+    header = metadata.splitlines()[0]
+    assert "Histology" in header
+    assert "galaxy_ext" in header  # workflow datatype hint present
+    assert "\tsvs\t" in metadata  # A.svs -> svs datatype
+    assert "IDC" in metadata  # uuid1 matched by barcode
+
+    report = (tmp_path / "r.tsv").read_text()
+    assert "files_matched_to_annotation\t1" in report
+    assert "total_download_size" in report
+    assert "unmatched_example\tTCGA-XX-YYYY-01A" in report
+
+
+def test_no_matches_writes_note(tmp_path, requests_mock):
+    import json
+
+    from gacdi_manifest.gdc import FILES_ENDPOINT
+
+    def callback(request, context):
+        context.status_code = 200
+        if request.json().get("facets"):
+            return json.dumps({"data": {"aggregations": {}}})
+        return json.dumps({"data": {"pagination": {"total": 0}}})
+
+    requests_mock.post(FILES_ENDPOINT, text=callback)
+    rc = main(_args(tmp_path))
+    assert rc == 0
+    report = (tmp_path / "r.tsv").read_text()
+    assert "files_matching_filters\t0" in report
+    assert "no_files_matched" in report
+    # manifest is header-only, metadata too
+    assert (tmp_path / "m.txt").read_text().strip() == "id\tfilename\tmd5\tsize\tstate"
+
+
+def test_no_filters_exit_code(tmp_path):
+    rc = main(["gdc", "--manifest-out", str(tmp_path / "m.txt"),
+               "--metadata-out", str(tmp_path / "md.tsv"),
+               "--report-out", str(tmp_path / "r.tsv")])
+    assert rc == 2
