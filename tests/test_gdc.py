@@ -37,6 +37,30 @@ def test_resolve_query(tmp_path, requests_mock):
     assert entries[0].size == 10
 
 
+def test_resolve_query_pages_through_all_files(tmp_path, requests_mock):
+    # 250 matching files across pages of 500 -> the importer must return them all,
+    # not a capped subset. Serve them in two pages driven by the `from` offset.
+    q = tmp_path / "q.json"
+    q.write_text('{"filters": {"op": "in"}, "size": 100}')
+    total = 250
+
+    def callback(request, context):
+        body = request.json()
+        start = int(body.get("from", 0))
+        size = int(body.get("size"))
+        hits = [
+            {"file_id": f"ID{i}", "file_name": f"f{i}.bam", "md5sum": "x", "file_size": "1"}
+            for i in range(start, min(start + size, total))
+        ]
+        return {"data": {"hits": hits, "pagination": {"total": total}}}
+
+    requests_mock.post(API_FILES_ENDPOINT, json=callback)
+    imp = GDCImporter(session=requests.Session())
+    entries = imp.resolve(RunConfig(input_mode="query", query_json=str(q)), None)
+    assert len(entries) == total
+    assert entries[0].file_id == "ID0" and entries[-1].file_id == f"ID{total - 1}"
+
+
 def test_resolve_query_no_filters(tmp_path):
     q = tmp_path / "q.json"
     q.write_text("{}")

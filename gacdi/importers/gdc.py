@@ -13,6 +13,7 @@ supported via ``--token`` (never logged).
 
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 from pathlib import Path
@@ -25,8 +26,13 @@ from ..history import unique_path
 from ..model import DownloadResult, FileEntry
 from ..proc import require, run
 
+log = logging.getLogger("gacdi.gdc")
+
 API_FILES_ENDPOINT = "https://api.gdc.cancer.gov/files"
 _QUERY_FIELDS = "file_id,file_name,md5sum,file_size"
+# Files fetched per request when paging a query. The importer pages through *all*
+# matching files regardless of this value; it only controls request granularity.
+_PAGE_SIZE = 500
 
 
 class GDCImporter(BaseImporter):
@@ -48,29 +54,52 @@ class GDCImporter(BaseImporter):
         filters = query.get("filters")
         if not filters:
             raise InputError("GDC query JSON must contain a 'filters' object.")
-        payload = {
-            "filters": filters,
-            "fields": query.get("fields", _QUERY_FIELDS),
-            "format": "JSON",
-            "size": query.get("size", 100),
-        }
-        resp = self.session.post(API_FILES_ENDPOINT, json=payload, timeout=60)
-        if resp.status_code >= 400:
-            raise DownloadError(f"GDC API returned HTTP {resp.status_code}: {resp.text[:200]}")
-        hits = resp.json().get("data", {}).get("hits", [])
-        entries = [
-            FileEntry(
-                file_id=h["file_id"],
-                filename=h.get("file_name") or h["file_id"],
-                md5=h.get("md5sum"),
-                size=int(h["file_size"]) if str(h.get("file_size", "")).isdigit() else None,
-                source=self.name,
+        fields = query.get("fields", _QUERY_FIELDS)
+        # A user-supplied "size" only sets the page size; the loop below pages
+        # through *every* matching file so nothing is silently capped. Sort by a
+        # stable key so paging is consistent across requests.
+        page_size = int(query.get("size", _PAGE_SIZE)) or _PAGE_SIZE
+
+        entries: list[FileEntry] = []
+        start, total = 0, None
+        while True:
+            payload = {
+                "filters": filters,
+                "fields": fields,
+                "format": "JSON",
+                "sort": "file_id:asc",
+                "size": page_size,
+                "from": start,
+            }
+            resp = self.session.post(API_FILES_ENDPOINT, json=payload, timeout=60)
+            if resp.status_code >= 400:
+                raise DownloadError(f"GDC API returned HTTP {resp.status_code}: {resp.text[:200]}")
+            data = resp.json().get("data", {})
+            hits = data.get("hits", [])
+            entries.extend(
+                FileEntry(
+                    file_id=h["file_id"],
+                    filename=h.get("file_name") or h["file_id"],
+                    md5=h.get("md5sum"),
+                    size=int(h["file_size"]) if str(h.get("file_size", "")).isdigit() else None,
+                    source=self.name,
+                )
+                for h in hits
+                if h.get("file_id")
             )
-            for h in hits
-            if h.get("file_id")
-        ]
+            if total is None:
+                try:
+                    total = int(data.get("pagination", {}).get("total", len(entries)))
+                except (TypeError, ValueError):
+                    total = len(entries)
+            start += len(hits)
+            # Stop when the server returns no more rows, or we've covered the total.
+            if not hits or start >= total:
+                break
+
         if not entries:
             raise InputError("GDC query matched no files.")
+        log.info("GDC query matched %d file(s).", len(entries))
         return entries
 
     def download(
