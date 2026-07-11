@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 
 import requests
 
-from .model import FileRow
+from .model import FileRow, ManifestRow
 
 
 class BuildImporter(ABC):
@@ -28,9 +28,25 @@ class BuildImporter(ABC):
     name: str = ""
     #: one-line help shown for the subcommand.
     help: str = ""
+    #: which manifest to emit: ``"gdc"`` = strict id/filename/md5/size/state (for
+    #: gdc-client); ``"source"`` = the multi-source §4.1 schema via to_manifest_rows.
+    manifest_dialect: str = "gdc"
 
     def add_arguments(self, parser) -> None:
         """Add this source's query flags to its subparser (optional)."""
+
+    def to_manifest_rows(self, file_rows: list[FileRow]) -> list[ManifestRow]:
+        """Map fetched files to §4.1 ManifestRow (only for ``manifest_dialect='source'``)."""
+        raise NotImplementedError(f"{self.name} does not implement to_manifest_rows")
+
+    def harmonize(self, row: dict) -> dict:
+        """Best-effort map of a metadata row's native fields to harmonized-core columns.
+
+        Called per merged metadata row; return ``{column: value}`` overrides for empty
+        harmonized columns. GDC returns ``{}`` (its join already fills the core); other
+        sources map from their passthrough columns.
+        """
+        return {}
 
     @abstractmethod
     def build_query(self, args) -> object:

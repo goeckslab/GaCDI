@@ -73,6 +73,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _write_manifest(importer: BuildImporter, path: str, file_rows: list) -> None:
+    """Write the manifest in the importer's dialect: strict GDC, or §4.1 for new sources."""
+    if importer.manifest_dialect == "source":
+        io.write_source_manifest(path, importer.to_manifest_rows(file_rows))
+    else:
+        io.write_manifest(path, file_rows)
+
+
 def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
     session = build_session()
 
@@ -98,7 +106,7 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
             for a in cbioportal.list_attributes(session, study, base=args.cbioportal_base):
                 rows.append(("cbioportal_attribute", a.get("clinicalAttributeId", ""),
                              f"{study}: {a.get('displayName', '')}"))
-        io.write_manifest(args.manifest_out, [])
+        _write_manifest(importer, args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
         io.write_report(args.report_out, extra=rows)
         log.info("Wrote %d cBioPortal attribute(s) to the report.", len(rows))
@@ -110,7 +118,7 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
     if args.count_only:
         total = importer.count(session, query)
         facet_counts = importer.facets(session, query)
-        io.write_manifest(args.manifest_out, [])
+        _write_manifest(importer, args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
         io.write_report(args.report_out, database_total=total, facets=facet_counts, provenance=prov)
         log.info("Preview: %d file(s) match the filters.", total)
@@ -130,7 +138,7 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
     # No files matched: write empty, self-explanatory outputs and skip the
     # (now pointless) annotation fetch/join.
     if not file_rows:
-        io.write_manifest(args.manifest_out, [])
+        _write_manifest(importer, args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
         io.write_report(
             args.report_out,
@@ -164,6 +172,13 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
         source=importer.name,
     )
 
+    # Best-effort harmonization: let the source map its native passthrough columns
+    # into the harmonized metadata core (GDC is a no-op — its join already fills it).
+    for row in merged:
+        for col, val in importer.harmonize(row).items():
+            if val and not row.get(col):
+                row[col] = val
+
     # Second-layer (post-query) filtering on the generated metadata columns.
     # Trims the final outputs to the samples the user cares about; a file stays in
     # the manifest as long as at least one of its (file x sample) rows survives.
@@ -188,7 +203,7 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
         log.info("Metadata filter kept %d of %d row(s) across %d file(s).",
                  len(merged), before, len(file_counts))
 
-    io.write_manifest(args.manifest_out, file_rows)
+    _write_manifest(importer, args.manifest_out, file_rows)
     io.write_metadata(args.metadata_out, merged, ann_cols)
     io.write_report(
         args.report_out,
