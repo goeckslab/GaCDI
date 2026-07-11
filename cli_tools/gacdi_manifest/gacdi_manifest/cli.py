@@ -1,67 +1,30 @@
-"""CLI: ``gacdi-manifest gdc [...]`` — build GDC manifests + enriched metadata."""
+"""CLI: ``gacdi-manifest <database> [...]`` — build manifests + enriched metadata.
+
+Source-specific work lives in each :class:`~gacdi_manifest.importer.BuildImporter`
+(see ``sources/``); this module owns the shared runner: preview/count, the
+annotation join, the post-query metadata filter, and writing the three outputs.
+"""
 
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from collections import Counter
 
-from . import cbioportal, enrich, gdc, io, postfilter, version_string
+from . import cbioportal, enrich, io, postfilter, version_string
 from .errors import InputError, ManifestError
-from .filters import build_filters
+from .importer import BuildImporter
 from .join import join
 from .net import build_session
+from .registry import REGISTRY, get_importer
 
 log = logging.getLogger("gacdi_manifest")
 
-# Facets summarised in count-only previews.
-PREVIEW_FACETS = [
-    "data_category",
-    "data_type",
-    "experimental_strategy",
-    "data_format",
-    "platform",
-    "access",
-    "cases.primary_site",
-    "analysis.workflow_type",
-]
 
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="gacdi-manifest", description="GaCDI manifest builder.")
-    parser.add_argument("--version", action="version", version=f"gacdi-manifest {version_string()}")
-    sub = parser.add_subparsers(dest="database", required=True, metavar="DATABASE")
-
-    p = sub.add_parser("gdc", help="Build a manifest from the GDC files API.")
-
-    facets = p.add_argument_group("guided filters")
-    facets.add_argument("--project", help="Project id, e.g. TCGA-BRCA (comma-separated for several).")
-    facets.add_argument("--primary-site", dest="primary_site", help="e.g. Breast, Lung, Brain.")
-    facets.add_argument("--disease-type", dest="disease_type")
-    facets.add_argument("--data-category", dest="data_category")
-    facets.add_argument("--data-type", dest="data_type")
-    facets.add_argument("--experimental-strategy", dest="experimental_strategy")
-    facets.add_argument("--workflow-type", dest="workflow_type", help="Analysis workflow, e.g. 'STAR - Counts'.")
-    facets.add_argument("--platform", dest="platform")
-    facets.add_argument("--data-format", dest="data_format")
-    facets.add_argument("--access", help="open or controlled.")
-    facets.add_argument("--sample-type", dest="sample_type")
-
-    cohort = p.add_argument_group("cohort lists (match an uploaded set of ids)")
-    cohort.add_argument("--file-id-list", dest="file_id_list",
-                        help="Path to a file of GDC file ids (one per line) to match.")
-    cohort.add_argument("--case-list", dest="case_list",
-                        help="Path to a file of case submitter ids/barcodes (one per line).")
-    cohort.add_argument("--sample-list", dest="sample_list",
-                        help="Path to a file of sample submitter ids/barcodes (one per line).")
-
-    adv = p.add_argument_group("advanced filters")
-    adv.add_argument("--extra-filter", dest="extra_filters", action="append", default=[],
-                     metavar="field=F;op=in;values=a,b",
-                     help="Custom GDC query filter on any GDC field (server-side, repeatable).")
-    adv.add_argument("--raw-filters", dest="raw_filters", help="Path to a raw GDC filters JSON file.")
+def _add_common_arguments(p: argparse.ArgumentParser) -> None:
+    """Flags shared by every source (post-query filtering, enrichment, outputs)."""
+    adv = p.add_argument_group("post-query filter")
     adv.add_argument("--metadata-filter", dest="metadata_filters", action="append", default=[],
                      metavar="column=C;op=present;values=a,b",
                      help="Post-query filter on a generated metadata column; trims the final "
@@ -93,39 +56,28 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--metadata-out", default="metadata.tsv")
     out.add_argument("--report-out", default="report.tsv")
     p.add_argument("--verbose", action="store_true")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="gacdi-manifest", description="GaCDI manifest builder.")
+    parser.add_argument("--version", action="version", version=f"gacdi-manifest {version_string()}")
+    sub = parser.add_subparsers(dest="database", required=True, metavar="DATABASE")
+
+    # Subparsers are built by iterating the registry: each source adds its own
+    # query flags, then the shared flags are appended.
+    for name in sorted(REGISTRY):
+        importer = get_importer(name)
+        p = sub.add_parser(importer.name, help=importer.help)
+        importer.add_arguments(p)
+        _add_common_arguments(p)
     return parser
 
 
-def _provenance(filters: dict) -> dict:
-    """Build the run's provenance record (source, endpoint, query, when, version)."""
-    import datetime
-
-    return {
-        "source": "gdc",
-        "endpoint": gdc.FILES_ENDPOINT,
-        "tool_version": version_string(),
-        "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-        "query_filters": json.dumps(filters, sort_keys=True, separators=(",", ":")),
-    }
-
-
-def _read_id_list(path: str | None) -> list[str]:
-    """Read a cohort id file into a list (one id per line; blanks/#comments skipped)."""
-    if not path:
-        return []
-    with open(path) as fh:
-        return [
-            line.strip()
-            for line in fh
-            if line.strip() and not line.lstrip().startswith("#")
-        ]
-
-
-def _run_gdc(args: argparse.Namespace) -> int:
+def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
     session = build_session()
 
     # Normalise and sanity-check the cBioPortal study id(s) early, before the
-    # (expensive) GDC query, so a bad id fails fast with a clear message.
+    # (expensive) source query, so a bad id fails fast with a clear message.
     # One or more comma-separated ids are allowed (they get merged).
     if args.cbioportal_study:
         studies = enrich.split_studies(args.cbioportal_study)
@@ -152,41 +104,20 @@ def _run_gdc(args: argparse.Namespace) -> int:
         log.info("Wrote %d cBioPortal attribute(s) to the report.", len(rows))
         return 0
 
-    raw = None
-    if args.raw_filters:
-        with open(args.raw_filters) as fh:
-            raw = json.load(fh)
-    filters = build_filters(
-        project=args.project,
-        primary_site=args.primary_site,
-        disease_type=args.disease_type,
-        data_category=args.data_category,
-        data_type=args.data_type,
-        experimental_strategy=args.experimental_strategy,
-        workflow_type=args.workflow_type,
-        platform=args.platform,
-        data_format=args.data_format,
-        access=args.access,
-        sample_type=args.sample_type,
-        file_id_list=_read_id_list(args.file_id_list),
-        case_list=_read_id_list(args.case_list),
-        sample_list=_read_id_list(args.sample_list),
-        extra_filters=args.extra_filters,
-        raw_filters=raw,
-    )
-    prov = _provenance(filters)
+    query = importer.build_query(args)
+    prov = importer.provenance(query)
 
     if args.count_only:
-        total = gdc.count(session, filters)
-        facet_counts = gdc.facets(session, filters, PREVIEW_FACETS)
+        total = importer.count(session, query)
+        facet_counts = importer.facets(session, query)
         io.write_manifest(args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
         io.write_report(args.report_out, database_total=total, facets=facet_counts, provenance=prov)
         log.info("Preview: %d file(s) match the filters.", total)
         return 0
 
-    total_matching = gdc.count(session, filters)
-    file_rows = gdc.query_files(session, filters, max_files=args.max_files, total=total_matching)
+    total_matching = importer.count(session, query)
+    file_rows = importer.fetch(session, query, max_files=args.max_files, total=total_matching)
     # Drop rows without a file id: the GaCDI GDC importer skips empty-id manifest
     # rows, so excluding them keeps the manifest and metadata table aligned.
     dropped = [r for r in file_rows if not r.file_id]
@@ -230,6 +161,7 @@ def _run_gdc(args: argparse.Namespace) -> int:
         level=args.join_level,
         trim_vial=args.trim_vial,
         annotation_columns=ann_cols,
+        source=importer.name,
     )
 
     # Second-layer (post-query) filtering on the generated metadata columns.
@@ -239,7 +171,7 @@ def _run_gdc(args: argparse.Namespace) -> int:
     if args.metadata_filters:
         before = len(merged)
         merged = postfilter.apply_metadata_filters(
-            merged, args.metadata_filters, columns=io.metadata_columns(ann_cols)
+            merged, args.metadata_filters, columns=io.metadata_columns(ann_cols, merged)
         )
         kept_ids = {r.get("file_id") for r in merged}
         file_rows = [r for r in file_rows if r.file_id in kept_ids]
@@ -285,9 +217,8 @@ def main(argv: list[str] | None = None) -> int:
     # Emit the running version to the job log so it is visible in Galaxy's job info.
     log.info("gacdi-manifest %s", version_string())
     try:
-        if args.database == "gdc":
-            return _run_gdc(args)
-        raise InputError(f"Unknown database '{args.database}'.")
+        importer = get_importer(args.database)
+        return _run(importer, args)
     except ManifestError as exc:
         log.error("%s", exc)
         return exc.exit_code
