@@ -10,6 +10,7 @@ import csv
 import io
 import json
 import logging
+import os
 
 import requests
 
@@ -53,16 +54,26 @@ FIELDS = [
     "cases.diagnoses.tumor_grade",
 ]
 
-DEFAULT_PAGE_SIZE = 500
+# A full page expands every nested field (cases.samples.*, cases.diagnoses.*,
+# cases.demographic.*) for each file, and GDC generates that TSV server-side row by
+# row — so page cost scales with page size, not just file count. 500 rows of this
+# many nested paths regularly exceeds the read timeout; 100 keeps each page well
+# inside it while still paging efficiently. Override with GACDI_GDC_PAGE_SIZE.
+DEFAULT_PAGE_SIZE = int(os.environ.get("GACDI_GDC_PAGE_SIZE") or 100)
+
+# Per-request read timeout (seconds). The fetch pages are far heavier than the
+# count/facet calls, so give them headroom; override with GACDI_GDC_TIMEOUT.
+DEFAULT_TIMEOUT = int(os.environ.get("GACDI_GDC_TIMEOUT") or 120)
 
 # Stable server-side order so paging and --max-files are reproducible across runs
 # (GDC's default order is unspecified). file_id is a unique, stable UUID.
 SORT = "file_id:asc"
 
 
-def _post(session: requests.Session, payload: dict, *, text: bool = False):
+def _post(session: requests.Session, payload: dict, *, text: bool = False,
+          timeout: int = DEFAULT_TIMEOUT):
     try:
-        resp = session.post(FILES_ENDPOINT, json=payload, timeout=60)
+        resp = session.post(FILES_ENDPOINT, json=payload, timeout=timeout)
     except requests.RequestException as exc:  # pragma: no cover - network only
         raise ApiError(f"GDC request failed: {exc}") from exc
     if resp.status_code >= 400:
