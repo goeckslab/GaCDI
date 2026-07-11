@@ -9,7 +9,7 @@ SAMPLE_TSV = (
     "cases.0.case_id\tcases.0.submitter_id\t"
     "cases.0.samples.0.sample_id\tcases.0.samples.0.submitter_id\t"
     "cases.0.samples.0.sample_type\tcases.0.project.project_id\t"
-    "cases.0.demographic.gender\tcases.0.diagnoses.0.age_at_diagnosis\t"
+    "cases.0.demographic.sex_at_birth\tcases.0.diagnoses.0.age_at_diagnosis\t"
     "cases.0.diagnoses.0.ajcc_pathologic_stage\n"
     "uuid1\tA.svs\tmd5a\t100\treleased\tSVS\tcase-uuid-1\tTCGA-E9-A5FL\t"
     "sample-uuid-1\tTCGA-E9-A5FL-01A\tPrimary Tumor\tTCGA-BRCA\tfemale\t21915\tStage IIA\n"

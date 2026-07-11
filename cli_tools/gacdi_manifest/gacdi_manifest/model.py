@@ -19,7 +19,9 @@ _SAMPLE_ID = re.compile(r"^cases\.\d+\.samples\.\d+\.sample_id$")
 # GDC-native clinical fields (demographic is one object per case; diagnoses is a
 # list). Pulling these means the harmonized clinical columns come from GDC itself,
 # with no cBioPortal call required.
-_GENDER = re.compile(r"^cases\.\d+\.demographic\.gender$")
+# The harmonized column is named `gender`, but GDC's demographic field was renamed
+# from `gender` to `sex_at_birth`; source it from the current field name.
+_GENDER = re.compile(r"^cases\.\d+\.demographic\.sex_at_birth$")
 _RACE = re.compile(r"^cases\.\d+\.demographic\.race$")
 _ETHNICITY = re.compile(r"^cases\.\d+\.demographic\.ethnicity$")
 _VITAL_STATUS = re.compile(r"^cases\.\d+\.demographic\.vital_status$")
@@ -63,7 +65,7 @@ def _case_record(row: dict, prefix: str) -> dict:
         "primary_site": _get(row, f"{prefix}.primary_site"),
         "disease_type": _get(row, f"{prefix}.disease_type"),
         "project": _get(row, f"{prefix}.project.project_id"),
-        "gender": _get(row, f"{prefix}.demographic.gender"),
+        "gender": _get(row, f"{prefix}.demographic.sex_at_birth"),
         "race": _get(row, f"{prefix}.demographic.race"),
         "ethnicity": _get(row, f"{prefix}.demographic.ethnicity"),
         "vital_status": _get(row, f"{prefix}.demographic.vital_status"),
@@ -145,7 +147,7 @@ def sample_id(row: dict) -> str | None:
 
 
 def gender(row: dict) -> str | None:
-    return _first_match(row, _GENDER) or row.get("cases.demographic.gender") or None
+    return _first_match(row, _GENDER) or row.get("cases.demographic.sex_at_birth") or None
 
 
 def race(row: dict) -> str | None:

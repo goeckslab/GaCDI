@@ -32,7 +32,7 @@ def test_enumerate_samples_multi_sample_file():
     row = {
         "cases.0.case_id": "c0",
         "cases.0.submitter_id": "TCGA-AA-0000",
-        "cases.0.demographic.gender": "female",
+        "cases.0.demographic.sex_at_birth": "female",
         "cases.0.samples.0.sample_id": "s0", "cases.0.samples.0.submitter_id": "TCGA-AA-0000-01A",
         "cases.0.samples.1.sample_id": "s1", "cases.0.samples.1.submitter_id": "TCGA-AA-0000-11A",
         "cases.1.case_id": "c1",
@@ -76,7 +76,7 @@ def test_clinical_extraction_from_flattened_row():
     from gacdi_manifest.model import age_at_diagnosis, gender, grade, stage, vital_status
 
     row = {
-        "cases.0.demographic.gender": "female",
+        "cases.0.demographic.sex_at_birth": "female",
         "cases.0.demographic.vital_status": "Alive",
         "cases.0.diagnoses.0.age_at_diagnosis": "21915",
         "cases.0.diagnoses.0.ajcc_pathologic_stage": "Stage IIA",
@@ -87,6 +87,24 @@ def test_clinical_extraction_from_flattened_row():
     assert age_at_diagnosis(row) == "21915"
     assert stage(row) == "Stage IIA"
     assert grade(row) == "G2"
+
+
+def test_gender_sourced_from_sex_at_birth_not_legacy_field():
+    """GDC dropped `demographic.gender` and replaced it with `sex_at_birth`.
+
+    The harmonized `gender` column must read the current field; the legacy field
+    name is no longer emitted by GDC and must not be relied on. This guards the
+    regression where the column silently stayed blank on real queries.
+    """
+    from gacdi_manifest.gdc import FIELDS
+    from gacdi_manifest.model import gender
+
+    assert gender({"cases.0.demographic.sex_at_birth": "male"}) == "male"
+    assert gender({"cases.0.demographic.gender": "male"}) is None
+
+    # The GDC request must ask for the current field, not the dropped one.
+    assert "cases.demographic.sex_at_birth" in FIELDS
+    assert "cases.demographic.gender" not in FIELDS
 
 
 def test_galaxy_ext_from_filename():
