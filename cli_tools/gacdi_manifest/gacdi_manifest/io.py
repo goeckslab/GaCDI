@@ -80,9 +80,18 @@ def write_manifest(path: str | Path, file_rows: list[FileRow]) -> None:
             writer.writerow([fr.file_id, fr.filename, fr.md5, fr.size, fr.state])
 
 
+def metadata_columns(annotation_columns: list[str]) -> list[str]:
+    """The metadata table header: base columns plus any (new) annotation columns.
+
+    Shared by the metadata writer and the post-query metadata filter so both agree
+    on exactly which column names exist.
+    """
+    return BASE_METADATA_COLUMNS + [c for c in annotation_columns if c not in BASE_METADATA_COLUMNS]
+
+
 def write_metadata(path: str | Path, merged_rows: list[dict], annotation_columns: list[str]) -> None:
     """Write the enriched research table (base columns + annotation columns)."""
-    columns = BASE_METADATA_COLUMNS + [c for c in annotation_columns if c not in BASE_METADATA_COLUMNS]
+    columns = metadata_columns(annotation_columns)
     with Path(path).open("w", newline="") as fh:
         writer = csv.writer(fh, delimiter="\t")
         writer.writerow(columns)

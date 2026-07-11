@@ -39,11 +39,11 @@
             #if str($adv.sample_type).strip() != ''
                 --sample-type '$adv.sample_type'
             #end if
-            #for $ef in $adv.extra_filters
+            #for $ef in $gdc_filter.extra_filters
                 --extra-filter 'field=${ef.field};op=${ef.op};values=${ef.values}'
             #end for
-            #if $adv.raw_filters
-                --raw-filters '$adv.raw_filters'
+            #if $gdc_filter.raw_filters
+                --raw-filters '$gdc_filter.raw_filters'
             #end if
             #if $count_only
                 --count-only
@@ -68,6 +68,9 @@
                     --no-trim-vial
                 #end if
             #end if
+            #for $mf in $adv.metadata_filters
+                --metadata-filter 'column=${mf.column};op=${mf.op};values=${mf.values}'
+            #end for
             --manifest-out '$manifest'
             --metadata-out '$metadata'
             --report-out '$report'
@@ -100,6 +103,29 @@
                 <option value="open">open</option>
                 <option value="controlled">controlled</option>
             </param>
+        </section>
+        <section name="gdc_filter" title="Filter by GDC field (part of the GDC query)" expanded="false">
+            <repeat name="extra_filters" title="Custom GDC field filter" min="0"
+                    help="Narrow the GDC query on ANY GDC field, not just the ones above. This is applied by GDC when the query runs, so it decides which files are found (and therefore what ends up in both the manifest and the metadata) — it does not filter your output files after the fact. To filter the final table on a column this tool generated (e.g. keep only samples with a subtype), use 'Filter the final table by metadata column' under Advanced options instead.">
+                <param name="field" type="text" value="" label="GDC field name"
+                       help="Use the GDC's own field name in dot-notation, e.g. cases.samples.sample_type, cases.demographic.gender, cases.diagnoses.primary_diagnosis, analysis.workflow_type. File-level fields have no prefix (e.g. experimental_strategy, platform, access); case/sample/clinical fields start with 'cases.'. Browse the full list at https://docs.gdc.cancer.gov/API/Users_Guide/Appendix_A_Available_Fields/ or fetch it live from https://api.gdc.cancer.gov/files/_mapping . The names here are GDC field names, NOT the column headers in the metadata output.">
+                    <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
+                </param>
+                <param name="op" type="select" label="Match or exclude"
+                       help="Keep files whose field is one of your values, or exclude them.">
+                    <option value="in">is one of (in)</option>
+                    <option value="exclude">is not (exclude)</option>
+                </param>
+                <param name="values" type="text" value="" label="Value(s)"
+                       help="Values to match, comma-separated. Must match GDC's stored values exactly, e.g. 'Primary Tumor' or 'female'.">
+                    <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
+                </param>
+            </repeat>
+            <param name="raw_filters" type="data" format="json,txt" optional="true"
+                   label="Raw GDC filters JSON"
+                   help="Power users: a full GDC 'filters' object, combined (AND) with everything above. Use this for operators the simple form can't express (ranges, missing-value checks, nested OR)."/>
         </section>
         <param name="count_only" type="boolean" checked="false" truevalue="true" falsevalue=""
                label="Preview counts only (don't build the manifest yet)"
@@ -149,27 +175,26 @@
                    help="Keep only this sample kind, e.g. Primary Tumor or Solid Tissue Normal.">
                 <expand macro="safe_text"/>
             </param>
-            <repeat name="extra_filters" title="Custom filter" min="0"
-                    help="Filter on any other GDC field not listed above.">
-                <param name="field" type="text" value="" label="GDC field"
-                       help="GDC field name, e.g. cases.samples.sample_type.">
+            <repeat name="metadata_filters" title="Filter the final table by metadata column" min="0"
+                    help="A second filtering layer applied AFTER the query and annotation join, on the metadata columns this tool generated (the headers you see in the metadata output — e.g. sample_type, vital_status, or an enrichment column like SUBTYPE or ER_STATUS_BY_IHC). Use it to clean the final manifest down to the samples you want: keep only rows where a column is present (non-blank), or matches specific value(s). A file stays in the manifest if at least one of its samples passes. Tip: run once to see the metadata columns, then add filters referring to them by their exact header name.">
+                <param name="column" type="text" value="" label="Metadata column"
+                       help="Exact column header from the metadata output, e.g. ER_STATUS_BY_IHC, SUBTYPE, sample_type, vital_status.">
                     <expand macro="safe_text"/>
                     <validator type="empty_field"/>
                 </param>
-                <param name="op" type="select" label="Match or exclude"
-                       help="Keep files matching the values, or exclude them.">
-                    <option value="in">is one of (in)</option>
-                    <option value="exclude">is not (exclude)</option>
+                <param name="op" type="select" label="Condition"
+                       help="How to test each row's value in that column.">
+                    <option value="present" selected="true">is present (non-blank)</option>
+                    <option value="blank">is blank (missing)</option>
+                    <option value="in">is one of (value list)</option>
+                    <option value="exclude">is not (value list)</option>
+                    <option value="contains">contains text</option>
                 </param>
-                <param name="values" type="text" value="" label="Value(s)"
-                       help="Values to match, comma-separated.">
+                <param name="values" type="text" value="" optional="true" label="Value(s)"
+                       help="Comma-separated. Required for 'is one of', 'is not', and 'contains'; leave blank for 'is present' / 'is blank'.">
                     <expand macro="safe_text"/>
-                    <validator type="empty_field"/>
                 </param>
             </repeat>
-            <param name="raw_filters" type="data" format="json,txt" optional="true"
-                   label="Raw GDC filters JSON"
-                   help="Power users: a full GDC 'filters' object, combined (AND) with the options above."/>
             <conditional name="enrich">
                 <param name="enable" type="select" label="Add clinical/annotation columns to the metadata?"
                        help="Adds per-sample columns (subtype, receptor status, your own labels). Does not change which files are downloaded.">
@@ -278,8 +303,28 @@ instead of a whole dataset. It produces three outputs:
 
 Fill in **What to download** (usually a *Project* plus a *Data type*) and run with
 *Preview counts only* first to see how many files match. When the count looks right,
-turn the preview off to build the manifest. Everything under **Advanced options** —
-extra filters, custom/raw filters, and clinical/annotation enrichment — is optional.
+turn the preview off to build the manifest. The guided facets, enrichment, and both
+filter layers below are all optional.
+
+**Two kinds of filter (they work at different stages)**
+
+1. **Filter by GDC field** *(part of the GDC query)* — narrows the query on any GDC
+   field, so it decides which files GDC returns. Use GDC's own field names in
+   dot-notation (e.g. ``cases.samples.sample_type``, ``cases.demographic.gender``);
+   the complete list is in the `GDC Available Fields
+   <https://docs.gdc.cancer.gov/API/Users_Guide/Appendix_A_Available_Fields/>`_ page,
+   or fetch it live from ``https://api.gdc.cancer.gov/files/_mapping``. These are the
+   API's field names, **not** the column headers in the metadata output.
+
+2. **Filter the final table by metadata column** *(Advanced options)* — a second
+   layer applied **after** the query and annotation join, on the columns this tool
+   generated (the headers in the metadata output — including any clinical/enrichment
+   columns you added). Use it to trim the final manifest to just the samples you
+   want: e.g. keep only rows where ``ER_STATUS_BY_IHC`` *is present*, or where
+   ``sample_type`` *is one of* ``Primary Tumor``. A file stays in the manifest as
+   long as at least one of its samples passes. A good workflow is to build once,
+   look at the metadata columns, then re-run adding metadata-column filters that
+   reference those exact headers.
 
 **Why two files?** ``gdc-client`` rejects a manifest that contains extra clinical
 columns or lacks ``state`` — so the lean manifest is kept separate from the rich

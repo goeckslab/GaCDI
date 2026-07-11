@@ -6,8 +6,9 @@ import argparse
 import json
 import logging
 import sys
+from collections import Counter
 
-from . import cbioportal, enrich, gdc, io, version_string
+from . import cbioportal, enrich, gdc, io, postfilter, version_string
 from .errors import InputError, ManifestError
 from .filters import build_filters
 from .join import join
@@ -58,8 +59,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     adv = p.add_argument_group("advanced filters")
     adv.add_argument("--extra-filter", dest="extra_filters", action="append", default=[],
-                     metavar="field=F;op=in;values=a,b", help="Custom facet (repeatable).")
+                     metavar="field=F;op=in;values=a,b",
+                     help="Custom GDC query filter on any GDC field (server-side, repeatable).")
     adv.add_argument("--raw-filters", dest="raw_filters", help="Path to a raw GDC filters JSON file.")
+    adv.add_argument("--metadata-filter", dest="metadata_filters", action="append", default=[],
+                     metavar="column=C;op=present;values=a,b",
+                     help="Post-query filter on a generated metadata column; trims the final "
+                          "manifest/metadata to matching samples (repeatable). "
+                          "Ops: present, blank, in, exclude, contains.")
 
     q = p.add_argument_group("query")
     q.add_argument("--max-files", type=int, help="Cap the number of files in the manifest.")
@@ -224,6 +231,31 @@ def _run_gdc(args: argparse.Namespace) -> int:
         trim_vial=args.trim_vial,
         annotation_columns=ann_cols,
     )
+
+    # Second-layer (post-query) filtering on the generated metadata columns.
+    # Trims the final outputs to the samples the user cares about; a file stays in
+    # the manifest as long as at least one of its (file x sample) rows survives.
+    post_notes: list[tuple[str, str, str]] = []
+    if args.metadata_filters:
+        before = len(merged)
+        merged = postfilter.apply_metadata_filters(
+            merged, args.metadata_filters, columns=io.metadata_columns(ann_cols)
+        )
+        kept_ids = {r.get("file_id") for r in merged}
+        file_rows = [r for r in file_rows if r.file_id in kept_ids]
+        # Keep the QC report consistent with the trimmed rows.
+        file_counts = Counter(r.get("file_id") for r in merged)
+        report.total_files = len(file_counts)
+        report.matched_files = sum(1 for r in merged if r.get("matched") == "yes")
+        report.unmatched_files = [r["file_id"] for r in merged if r.get("matched") == "no"]
+        report.multi_sample_files = sum(1 for n in file_counts.values() if n > 1)
+        for spec in args.metadata_filters:
+            post_notes.append(("metadata_filter", "applied", spec))
+        post_notes.append(("metadata_filter", "rows_kept", f"{len(merged)} of {before}"))
+        post_notes.append(("metadata_filter", "files_kept", str(len(file_counts))))
+        log.info("Metadata filter kept %d of %d row(s) across %d file(s).",
+                 len(merged), before, len(file_counts))
+
     io.write_manifest(args.manifest_out, file_rows)
     io.write_metadata(args.metadata_out, merged, ann_cols)
     io.write_report(
@@ -233,6 +265,7 @@ def _run_gdc(args: argparse.Namespace) -> int:
         report=report,
         enrichment_columns=ann_cols,
         provenance=prov,
+        extra=post_notes or None,
     )
     log.info(
         "Built manifest with %d file(s); %d matched to annotation, %d unmatched.",

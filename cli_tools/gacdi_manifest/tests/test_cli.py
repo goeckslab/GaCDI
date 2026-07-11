@@ -48,6 +48,26 @@ def test_full_build_with_annotation(tmp_path, gdc_api):
     assert "unmatched_example\tTCGA-XX-YYYY-01A" in report
 
 
+def test_metadata_filter_trims_manifest_and_metadata(tmp_path, gdc_api):
+    # Post-query filter on a generated column: keep only the female sample (uuid1).
+    rc = main(_args(tmp_path, "--metadata-filter", "column=gender;op=in;values=female"))
+    assert rc == 0
+
+    manifest = (tmp_path / "m.txt").read_text()
+    assert "uuid1" in manifest and "uuid2" not in manifest
+
+    metadata = (tmp_path / "md.tsv").read_text()
+    assert "uuid1" in metadata and "uuid2" not in metadata
+
+    report = (tmp_path / "r.tsv").read_text()
+    assert "metadata_filter\trows_kept\t1 of 2" in report
+
+
+def test_metadata_filter_unknown_column_fails(tmp_path, gdc_api):
+    rc = main(_args(tmp_path, "--metadata-filter", "column=NoSuchColumn;op=present"))
+    assert rc == 2
+
+
 def test_metadata_carries_gdc_native_clinical(tmp_path, gdc_api):
     # Clinical columns come from GDC itself — no cBioPortal study supplied.
     import csv
