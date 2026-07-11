@@ -10,7 +10,7 @@
     -->
     <xml name="requirements">
         <requirements>
-            <container type="docker">gacdi-manifest:dev</container>
+            <container type="docker">quay.io/goeckslab/gacdi-manifest:@TOOL_VERSION@</container>
         </requirements>
     </xml>
 
