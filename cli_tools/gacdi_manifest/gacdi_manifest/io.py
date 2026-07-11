@@ -173,17 +173,17 @@ def write_report(
             for value, n in counts.items():
                 add("facet:" + field_name, str(value), n)
 
-    # --- capped examples of unmatched samples (by barcode) -------------
+    # --- unmatched samples (by barcode), collapsed into one row --------
     if merged_rows is not None and report is not None and report.unmatched_files:
         unmatched = [
             (r.get("sample_barcode") or r.get("file_id"))
             for r in merged_rows
             if r.get("matched") == "no"
         ]
-        for barcode in unmatched[:max_examples]:
-            add("unmatched_example", barcode, "")
+        joined = ", ".join(unmatched[:max_examples])
         if len(unmatched) > max_examples:
-            add("unmatched_example", "...", f"and {len(unmatched) - max_examples} more")
+            joined += f", ... (and {len(unmatched) - max_examples} more)"
+        add("unmatched_example", joined, "")
 
     for item in extra or []:
         rows.append(item)
