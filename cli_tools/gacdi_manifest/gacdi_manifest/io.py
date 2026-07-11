@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import version_string
 from .join import JoinReport
-from .model import FileRow
+from .model import FileRow, ManifestRow
 
 # Metadata columns summarised in the report's composition breakdown.
 _COMPOSITION_COLUMNS = [
@@ -36,6 +36,13 @@ def _top_counts(rows: list[dict], column: str, top: int = 15) -> tuple[list[tupl
 
 # gdc-client / gacdi_gdc require exactly these columns, in this order.
 MANIFEST_COLUMNS = ["id", "filename", "md5", "size", "state"]
+
+# Multi-source download-contract columns (plan §4.1), emitted by non-GDC sources
+# via write_source_manifest. Order is the schema; keep in sync with model.ManifestRow.
+SOURCE_MANIFEST_COLUMNS = [
+    "source", "file_id", "filename", "drs_uri", "access_url", "download_method",
+    "checksum", "checksum_type", "size", "file_format", "access", "case_id", "sample_id",
+]
 
 BASE_METADATA_COLUMNS = [
     "file_id",
@@ -80,18 +87,36 @@ def write_manifest(path: str | Path, file_rows: list[FileRow]) -> None:
             writer.writerow([fr.file_id, fr.filename, fr.md5, fr.size, fr.state])
 
 
-def metadata_columns(annotation_columns: list[str]) -> list[str]:
-    """The metadata table header: base columns plus any (new) annotation columns.
+def metadata_columns(
+    annotation_columns: list[str], rows: list[dict] | None = None
+) -> list[str]:
+    """The metadata table header: base columns, annotation columns, then passthrough.
 
     Shared by the metadata writer and the post-query metadata filter so both agree
-    on exactly which column names exist.
+    on exactly which column names exist. When *rows* are given, any extra keys they
+    carry (the source-native passthrough, e.g. ``gdc__…``) are appended in sorted
+    order, so nothing the source returned is dropped and users can filter on it.
     """
-    return BASE_METADATA_COLUMNS + [c for c in annotation_columns if c not in BASE_METADATA_COLUMNS]
+    columns = BASE_METADATA_COLUMNS + [c for c in annotation_columns if c not in BASE_METADATA_COLUMNS]
+    if rows:
+        known = set(columns)
+        extra = sorted({k for row in rows for k in row if k not in known})
+        columns = columns + extra
+    return columns
+
+
+def write_source_manifest(path: str | Path, rows: list[ManifestRow]) -> None:
+    """Write the multi-source (§4.1) manifest for non-GDC sources."""
+    with Path(path).open("w", newline="") as fh:
+        writer = csv.writer(fh, delimiter="\t")
+        writer.writerow(SOURCE_MANIFEST_COLUMNS)
+        for r in rows:
+            writer.writerow([getattr(r, c) for c in SOURCE_MANIFEST_COLUMNS])
 
 
 def write_metadata(path: str | Path, merged_rows: list[dict], annotation_columns: list[str]) -> None:
-    """Write the enriched research table (base columns + annotation columns)."""
-    columns = metadata_columns(annotation_columns)
+    """Write the enriched research table (base + annotation + native passthrough)."""
+    columns = metadata_columns(annotation_columns, merged_rows)
     with Path(path).open("w", newline="") as fh:
         writer = csv.writer(fh, delimiter="\t")
         writer.writerow(columns)
