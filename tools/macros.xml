@@ -19,7 +19,7 @@
         <requirements>
             <requirement type="package" version="@TOOL_VERSION@">gacdi</requirement>
             <yield/>
-            <container type="docker">quay.io/@QUAY_ORG@/@CONTAINER@:@TOOL_VERSION@</container>
+            <container type="docker">gacdi-manifest:dev</container>
         </requirements>
     </xml>
 
