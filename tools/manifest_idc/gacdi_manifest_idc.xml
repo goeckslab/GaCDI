@@ -1,0 +1,110 @@
+<tool id="gacdi_manifest_idc" name="GaCDI Manifest Builder (IDC)" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>build a filtered IDC imaging manifest (GCS, one row per DICOM series) and metadata</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code"><![CDATA[
+        gacdi-manifest idc
+            #if str($core.collection_id).strip() != ''
+                --collection-id '$core.collection_id'
+            #end if
+            #if str($core.patient_id).strip() != ''
+                --patient-id '$core.patient_id'
+            #end if
+            #for $mf in $adv.metadata_filters
+                --metadata-filter 'column=${mf.column};op=${mf.op};values=${mf.values}'
+            #end for
+            #if $count_only
+                --count-only
+            #else
+                #if str($adv.max_files) != ''
+                    --max-files $adv.max_files
+                #end if
+            #end if
+            --manifest-out '$manifest'
+            --metadata-out '$metadata'
+            --report-out '$report'
+    ]]></command>
+    <inputs>
+        <section name="core" title="What to download" expanded="true">
+            <param name="collection_id" type="text" value="" label="IDC collection id(s)"
+                   help="One or more IDC collection ids (comma-separated), e.g. 4d_lung, tcga_luad. Browse collections at https://portal.imaging.datacommons.cancer.gov/.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="patient_id" type="text" value="" label="Patient id(s)"
+                   help="Optional. One or more PatientIDs (comma-separated) to restrict the manifest to a specific cohort.">
+                <expand macro="safe_text"/>
+            </param>
+        </section>
+        <param name="count_only" type="boolean" checked="false" truevalue="true" falsevalue=""
+               label="Preview counts only (don't build the manifest yet)"
+               help="Reports how many DICOM instances match so you can gauge size before building the (series-level) manifest."/>
+        <section name="adv" title="Advanced options" expanded="false">
+            <repeat name="metadata_filters" title="Filter the final table by metadata column" min="0"
+                    help="Applied AFTER the query, on the metadata columns this tool generated (e.g. project, case_id, or a native column like idc__StudyInstanceUID). Keeps only rows where a column is present or matches specific value(s).">
+                <param name="column" type="text" value="" label="Metadata column"
+                       help="Exact column header from the metadata output, e.g. case_id, project, idc__PatientID.">
+                    <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
+                </param>
+                <param name="op" type="select" label="Condition" help="How to test each row's value.">
+                    <option value="present" selected="true">is present (non-blank)</option>
+                    <option value="blank">is blank (missing)</option>
+                    <option value="in">is one of (value list)</option>
+                    <option value="exclude">is not (value list)</option>
+                    <option value="contains">contains text</option>
+                </param>
+                <param name="values" type="text" value="" optional="true" label="Value(s)"
+                       help="Comma-separated. Required for 'is one of', 'is not', and 'contains'; leave blank for 'is present' / 'is blank'.">
+                    <expand macro="safe_text"/>
+                </param>
+            </repeat>
+            <param name="max_files" type="integer" value="" optional="true" min="1"
+                   label="Maximum number of series"
+                   help="Stop after this many series — handy for a quick test on a large collection. Leave blank for all matches."/>
+        </section>
+    </inputs>
+    <outputs>
+        <data name="manifest" format="tabular" label="${tool.name} on ${on_string}: IDC GCS manifest"/>
+        <data name="metadata" format="tabular" label="${tool.name} on ${on_string}: metadata"/>
+        <data name="report" format="tabular" label="${tool.name} on ${on_string}: report"/>
+    </outputs>
+    <tests>
+        <!-- Live preview: a light IDC instance count; run with `planemo test`. -->
+        <test>
+            <section name="core">
+                <param name="collection_id" value="4d_lung"/>
+            </section>
+            <param name="count_only" value="true"/>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="files_matching_filters"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI Manifest Builder (IDC)**
+
+Builds a **targeted** download manifest from the NCI `Imaging Data Commons
+<https://imaging.datacommons.cancer.gov/>`_ (IDC), a CRDC node, so you fetch exactly the
+DICOM imaging series you want. It produces three outputs:
+
+1. **IDC GCS manifest** — the multi-source download contract, one row **per DICOM series**.
+   Each row carries ``download_method=gcs`` and ``access_url =
+   gs://idc-open-data/<series-uuid>/`` (the public IDC bucket), plus ``file_format=DICOM``
+   and ``case_id`` = PatientID.
+2. **metadata** — a harmonized core (``project`` = collection, ``case_id`` = PatientID …)
+   plus every native IDC field preserved as ``idc__`` prefixed columns.
+3. **report** — match counts and provenance; in preview mode, the matching instance count.
+
+**Getting started**
+
+Give an **IDC collection id** (e.g. ``4d_lung``) — optionally narrowed by *Patient id(s)* —
+and run with *Preview counts only* first (it reports matching DICOM **instances**; the built
+manifest has one row per **series**). When the count looks right, turn preview off. For a
+large collection use *Maximum number of series* to cap a quick test.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

@@ -116,8 +116,10 @@ planemo lint tools/manifest_gdc
 - **Phase 2 (in progress):** CRDC GDC-style commons reusing the filter/join core.
   **PDC** shipped — `gacdi-manifest pdc` emits a GA4GH **DRS** manifest
   (`drs://dg.4DFC:<id>`, `download_method=drs`) plus harmonized + `pdc__` passthrough
-  metadata; Galaxy tool `gacdi_manifest_pdc`. IDC/ICDC/CDS/CTDC to follow (CDS spike
-  deferred — host not reachable at time of writing).
+  metadata; Galaxy tool `gacdi_manifest_pdc`. **IDC** shipped — `gacdi-manifest idc`
+  emits a **GCS** manifest (one row per DICOM series, `download_method=gcs`,
+  `gs://idc-open-data/<series>/`); Galaxy tool `gacdi_manifest_idc`. ICDC/CDS/CTDC to
+  follow (CDS spike deferred — host not reachable at time of writing).
 - **Phase 3:** GEO/SRA accession-list builders; on merge with the importer branch,
   fold shared HTTP utilities into the `gacdi` package.
 
@@ -127,6 +129,7 @@ planemo lint tools/manifest_gdc
 |---|---|---|---|
 | GDC (Genomic Data Commons) | `gdc` | strict `id/filename/md5/size/state` | shipped |
 | PDC (Proteomic Data Commons) | `pdc` | §4.1 DRS (`drs://dg.4DFC:<id>`) | shipped |
+| IDC (Imaging Data Commons) | `idc` | §4.1 GCS (series, `gs://idc-open-data/<id>/`) | shipped |
 
 ## License
 
