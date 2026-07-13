@@ -10,23 +10,59 @@
         @CMD_PREAMBLE@
         gacdi gdc
             --input-mode '$input.mode'
-            #if $input.mode == 'manifest'
+            #if $input.mode == 'bundle'
                 --manifest '$input.manifest'
+                --metadata '$input.metadata'
+                --provenance '$input.provenance'
+                #if $input.allow_raw_mixed
+                    --set allow_raw_mixed=true
+                #end if
+            #else if $input.mode == 'manifest'
+                --manifest '$input.manifest'
+                --set legacy_access='$input.access'
             #else
                 --query-json '$input.query_json'
             #end if
+            --transfer-report '$transfer_report'
+            --dataset-map '$dataset_map'
+            --galaxy-metadata 'galaxy.json'
+            --imported-metadata '$imported_metadata'
+            --import-provenance '$import_provenance'
+            --retry-manifest '$retry_manifest'
+            --retry-metadata '$retry_metadata'
+            --retry-provenance '$retry_provenance'
             @TOKEN_ARG@
             @COMMON_ARGS@
     ]]></command>
     <inputs>
         <conditional name="input">
             <param name="mode" type="select" label="Selection source">
-                <option value="manifest">GDC manifest file (from the portal cart)</option>
-                <option value="query">GDC API query (JSON filters)</option>
+                <option value="bundle" selected="true">Canonical selection bundle (from GaCDI Manifest Builder)</option>
+                <option value="manifest">Legacy GDC portal manifest</option>
+                <option value="query">Legacy direct GDC API query (JSON filters)</option>
             </param>
+            <when value="bundle">
+                <param name="manifest" type="data" format="tabular"
+                       label="Canonical selection manifest"
+                       help="The selection_manifest output from GaCDI Manifest Builder (GDC)."/>
+                <param name="metadata" type="data" format="tabular"
+                       label="Canonical selection metadata"
+                       help="The matching selection_metadata output from the same builder run."/>
+                <param name="provenance" type="data" format="json"
+                       label="Selection provenance"
+                       help="The matching selection_provenance output. Its hashes bind the other two inputs and prevent accidental cohort mixing."/>
+                <param name="allow_raw_mixed" type="boolean" checked="false" truevalue="true" falsevalue=""
+                       label="Allow an explicitly heterogeneous raw collection"
+                       help="Leave disabled for analysis-ready collections. Enable only when the bundle intentionally has payload_profile=raw_mixed and downstream tools will handle its mixed datatypes."/>
+            </when>
             <when value="manifest">
                 <param name="manifest" type="data" format="tabular,txt" label="GDC manifest"
                        help="A manifest exported from the GDC Data Portal (columns: id, filename, md5, size, state)."/>
+                <param name="access" type="select" label="Access level of every file in this legacy manifest"
+                       help="Legacy manifests do not record access. Declare it explicitly so controlled data cannot begin without credential preflight.">
+                    <option value="open">Open</option>
+                    <option value="controlled">Controlled (token required)</option>
+                </param>
             </when>
             <when value="query">
                 <param name="query_json" type="data" format="json,txt" label="GDC query JSON"
@@ -36,9 +72,59 @@
         <expand macro="token_input"/>
         <expand macro="advanced_options"/>
     </inputs>
-    <expand macro="outputs"/>
+    <outputs>
+        <collection name="downloaded" type="list" label="${tool.name} on ${on_string}: downloaded files">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <data name="summary" format="tabular" label="${tool.name} on ${on_string}: compatibility summary"/>
+        <data name="transfer_report" format="tabular" label="${tool.name} on ${on_string}: asset transfer report"/>
+        <data name="dataset_map" format="tabular" label="${tool.name} on ${on_string}: produced dataset map"/>
+        <data name="imported_metadata" format="tabular" label="${tool.name} on ${on_string}: imported metadata by collection element"/>
+        <data name="import_provenance" format="json" label="${tool.name} on ${on_string}: import provenance"/>
+        <data name="retry_manifest" format="tabular" label="${tool.name} on ${on_string}: retry manifest"/>
+        <data name="retry_metadata" format="tabular" label="${tool.name} on ${on_string}: retry metadata"/>
+        <data name="retry_provenance" format="json" label="${tool.name} on ${on_string}: retry provenance"/>
+    </outputs>
     <tests>
         <!-- Dry run: resolves the manifest without contacting GDC or needing gdc-client. -->
+        <test>
+            <conditional name="input">
+                <param name="mode" value="bundle"/>
+                <param name="manifest" value="selection_manifest.tsv"/>
+                <param name="metadata" value="selection_metadata.tsv"/>
+                <param name="provenance" value="selection_provenance.json"/>
+            </conditional>
+            <section name="advanced">
+                <param name="dry_run" value="true"/>
+            </section>
+            <output name="transfer_report">
+                <assert_contents>
+                    <has_text text="0001-aaaa-bbbb-cccc"/>
+                    <has_text text="planned"/>
+                </assert_contents>
+            </output>
+            <output name="dataset_map">
+                <assert_contents>
+                    <has_text text="element_id"/>
+                </assert_contents>
+            </output>
+            <output name="imported_metadata">
+                <assert_contents>
+                    <has_text text="metadata_row_id"/>
+                    <has_text text="element_id"/>
+                </assert_contents>
+            </output>
+            <output name="retry_manifest">
+                <assert_contents>
+                    <has_text text="download_method"/>
+                </assert_contents>
+            </output>
+            <output name="retry_metadata">
+                <assert_contents>
+                    <has_text text="metadata_row_id"/>
+                </assert_contents>
+            </output>
+        </test>
         <test>
             <conditional name="input">
                 <param name="mode" value="manifest"/>
@@ -63,10 +149,22 @@ into your Galaxy history using the official ``gdc-client``.
 
 **Selection source**
 
-- *GDC manifest file* — export a manifest from your cart on the
-  `GDC Data Portal <https://portal.gdc.cancer.gov/>`_ and upload it here.
-- *GDC API query (JSON filters)* — provide a JSON document with a ``filters``
-  object; matching files are enumerated from the GDC REST API and downloaded.
+- *Canonical selection bundle* — connect the manifest, metadata, and provenance
+  outputs from **GaCDI Manifest Builder (GDC)**. The downloader validates the
+  three files together before any transfer. This is the normal workflow path.
+- *Legacy GDC portal manifest* — compatibility mode for manifests exported from
+  the `GDC Data Portal <https://portal.gdc.cancer.gov/>`_. Because that format has
+  no access field, you must explicitly declare all rows open or controlled.
+- *Legacy direct API query* — compatibility mode for a JSON ``filters`` object.
+
+The downloaded collection uses explicit tool-provided member metadata, so element
+identifiers and Galaxy datatypes do not depend on filename suffix guessing. The
+asset transfer report records one row per selected remote asset; the dataset map
+records one row per collection element and is the stable join point for workflows.
+Imported metadata carries that element join into the biological table. Import
+provenance records execution policy and result counts. Failed canonical assets are
+emitted as a new hash-bound retry manifest/metadata/provenance bundle that can be
+connected back to this tool without editing.
 
 **Controlled access**
 
