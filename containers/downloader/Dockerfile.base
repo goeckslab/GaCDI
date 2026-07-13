@@ -2,7 +2,7 @@
 # binaries. Per-tool images (gacdi-gdc/geo/sra) extend this layer.
 #
 # Build from the repository root:
-#   docker build -f containers/Dockerfile.base -t gacdi-base:dev .
+#   docker build -f containers/downloader/Dockerfile.base -t gacdi-base:dev .
 FROM mambaorg/micromamba:1.5.8
 
 LABEL org.opencontainers.image.title="gacdi-base" \
@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.title="gacdi-base" \
 USER root
 
 # 1. Base conda environment (python + requests).
-COPY containers/env/base.yml /tmp/base.yml
+COPY containers/downloader/env/base.yml /tmp/base.yml
 RUN micromamba install -y -n base -f /tmp/base.yml && micromamba clean -a -y
 
 # 2. Install the shared foundation, then the gacdi package, from source.

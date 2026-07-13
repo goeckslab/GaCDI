@@ -89,11 +89,11 @@ annotations (e.g. labels for an image ML model).
 The tool ships a pinned container (`quay.io/<org>/gacdi-manifest`) referenced from
 the wrapper, with Python + `requests` Conda requirements as a fallback. The Quay
 namespace (`paulocilasjr`) is a placeholder — update `@QUAY_ORG@` in
-`tools/manifest_gdc/macros.xml`, `containers/Dockerfile.manifest`, and the workflow
+`tools/manifest_gdc/macros.xml`, `containers/manifest_builder/Dockerfile`, and the workflow
 before publishing.
 
 ```bash
-docker build -f containers/Dockerfile.manifest -t gacdi-manifest:dev .
+docker build -f containers/manifest_builder/Dockerfile -t gacdi-manifest:dev .
 docker run --rm gacdi-manifest:dev gacdi-manifest gdc --help
 ```
 

@@ -121,14 +121,14 @@ Conda `<requirements>` (fallback):
 Build locally:
 
 ```bash
-docker build -f containers/Dockerfile.base -t gacdi-base:dev .
-docker build -f containers/Dockerfile.sra  --build-arg BASE_IMAGE=gacdi-base:dev -t gacdi-sra:dev .
+docker build -f containers/downloader/Dockerfile.base -t gacdi-base:dev .
+docker build -f containers/downloader/Dockerfile.sra  --build-arg BASE_IMAGE=gacdi-base:dev -t gacdi-sra:dev .
 docker run --rm gacdi-sra:dev gacdi sra --help
 ```
 
 CI (`.github/workflows/containers.yml`) builds and pushes the images to
 `quay.io/<org>/…` on a version tag. **The Quay namespace (`paulocilasjr`) is a
-placeholder — update `@QUAY_ORG@` in `tools/macros.xml`, `containers/Dockerfile.*`,
+placeholder — update `@QUAY_ORG@` in `tools/macros.xml`, `containers/downloader/Dockerfile.* and containers/manifest_builder/Dockerfile`,
 and the workflow before publishing.** Galaxy pulls the same image via Docker or
 Singularity/Apptainer; the container resolver must be enabled on the Galaxy
 instance (otherwise the Conda fallback is used).

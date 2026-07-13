@@ -1,6 +1,6 @@
 # GaCDI Manifest Builder runtime. Build from the repository root so the image
 # contains both the shared gacdi-core contracts and the gacdi_manifest selector.
-#   docker build -f containers/Dockerfile.manifest -t gacdi-manifest:dev .
+#   docker build -f containers/manifest_builder/Dockerfile -t gacdi-manifest:dev .
 FROM python:3.12-alpine
 
 LABEL org.opencontainers.image.title="gacdi-manifest" \

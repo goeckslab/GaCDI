@@ -1,5 +1,5 @@
 # GaCDI GDC runtime: base image + gdc-client.
-#   docker build -f containers/Dockerfile.gdc \
+#   docker build -f containers/downloader/Dockerfile.gdc \
 #     --build-arg BASE_IMAGE=gacdi-base:dev -t gacdi-gdc:dev .
 ARG BASE_IMAGE=quay.io/goeckslab/gacdi-base:0.1.1
 FROM ${BASE_IMAGE}
@@ -8,6 +8,6 @@ LABEL org.opencontainers.image.title="gacdi-gdc" \
       org.opencontainers.image.description="GaCDI GDC importer runtime (gacdi + gdc-client)"
 
 USER root
-COPY containers/env/gdc.yml /tmp/gdc.yml
+COPY containers/downloader/env/gdc.yml /tmp/gdc.yml
 RUN micromamba install -y -n base -f /tmp/gdc.yml && micromamba clean -a -y
 USER $MAMBA_USER

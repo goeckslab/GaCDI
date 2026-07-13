@@ -160,8 +160,8 @@ venv/
 ENV/
 # The repository's container environment specifications live in a directory
 # whose name collides case-insensitively with the generic virtualenv rule above.
-!containers/env/
-!containers/env/*.yml
+!containers/downloader/env/
+!containers/downloader/env/*.yml
 env.bak/
 venv.bak/
 

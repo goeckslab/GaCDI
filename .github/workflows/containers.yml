@@ -44,18 +44,18 @@ jobs:
             downloader:
               - 'packages/gacdi_core/**'
               - 'packages/gacdi_downloader/**'
-              - 'containers/Dockerfile.base'
-              - 'containers/Dockerfile.cda'
-              - 'containers/Dockerfile.gdc'
-              - 'containers/Dockerfile.geo'
-              - 'containers/Dockerfile.sra'
-              - 'containers/env/**'
+              - 'containers/downloader/Dockerfile.base'
+              - 'containers/downloader/Dockerfile.cda'
+              - 'containers/downloader/Dockerfile.gdc'
+              - 'containers/downloader/Dockerfile.geo'
+              - 'containers/downloader/Dockerfile.sra'
+              - 'containers/downloader/env/**'
               - '.dockerignore'
               - '.github/workflows/containers.yml'
             manifest:
               - 'packages/gacdi_core/**'
               - 'packages/gacdi_manifest_builder/**'
-              - 'containers/Dockerfile.manifest'
+              - 'containers/manifest_builder/Dockerfile'
               - '.dockerignore'
               - '.github/workflows/containers.yml'
 
@@ -93,7 +93,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: containers/Dockerfile.base
+          file: containers/downloader/Dockerfile.base
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-base:${{ steps.version.outputs.version }}
 
@@ -140,7 +140,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: containers/Dockerfile.${{ matrix.tool }}
+          file: containers/downloader/Dockerfile.${{ matrix.tool }}
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-base:${{ steps.version.outputs.version }}
           push: true
@@ -186,7 +186,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: containers/Dockerfile.manifest
+          file: containers/manifest_builder/Dockerfile
           push: true
           build-args: |
             GACDI_BUILD=${{ github.sha }}
