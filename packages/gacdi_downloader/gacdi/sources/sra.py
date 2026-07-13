@@ -14,15 +14,14 @@ from __future__ import annotations
 import gzip
 import re
 import shutil
-import subprocess
 from pathlib import Path
 
 from ..auth import TokenFile
 from ..base import BaseDownloadSource, RunConfig
+from ..clients.sra_toolkit import SRAToolkitAdapter
 from ..errors import DownloadError, InputError
 from ..manifest import parse_accessions
 from ..model import DownloadResult, FileEntry
-from ..proc import require, run
 
 _RUN_ACCESSION = re.compile(r"^[SED]R[RXPAS]\d+$", re.IGNORECASE)
 
@@ -41,6 +40,12 @@ class SRADownloadSource(BaseDownloadSource):
     supports_controlled = False
     supported_modes = ("accession",)
 
+    def __init__(self, session=None, toolkit: SRAToolkitAdapter | None = None) -> None:
+        super().__init__(session=session)
+        # The toolkit adapter is injected for tests; a default is created when
+        # none is supplied so existing callers stay compatible.
+        self._toolkit = toolkit or SRAToolkitAdapter()
+
     def resolve(self, cfg: RunConfig, token: TokenFile | None) -> list[FileEntry]:
         entries = parse_accessions(cfg.accessions, source=self.name)
         for e in entries:
@@ -57,17 +62,10 @@ class SRADownloadSource(BaseDownloadSource):
         cfg: RunConfig,
         token: TokenFile | None,
     ) -> DownloadResult:
-        prefetch = require("prefetch")
-        fasterq = require("fasterq-dump")
         acc = entry.file_id
         dest = Path(dest_dir)
 
-        try:
-            run([prefetch, acc, "-O", dest_dir])
-        except subprocess.CalledProcessError as exc:
-            raise DownloadError(
-                f"prefetch failed for {acc}: {(exc.stderr or '').strip()[:300]}"
-            ) from exc
+        self._toolkit.prefetch(acc, dest_dir)
 
         # prefetch writes <dest>/<acc>/<acc>.sra (or .sralite)
         sra_dir = dest / acc
@@ -75,11 +73,7 @@ class SRADownloadSource(BaseDownloadSource):
         source_arg = str(sra_file) if sra_file else acc
 
         try:
-            run([fasterq, source_arg, "-O", dest_dir, "-e", str(max(cfg.jobs, 1))])
-        except subprocess.CalledProcessError as exc:
-            raise DownloadError(
-                f"fasterq-dump failed for {acc}: {(exc.stderr or '').strip()[:300]}"
-            ) from exc
+            self._toolkit.fasterq_dump(source_arg, dest_dir, threads=max(cfg.jobs, 1), accession=acc)
         finally:
             shutil.rmtree(sra_dir, ignore_errors=True)
 
