@@ -34,15 +34,15 @@ class SourceSpec:
 
 REGISTRY: dict[str, SourceSpec] = {
     "gdc": SourceSpec(
-        target="gacdi_manifest.sources.gdc:GDCImporter",
+        target="gacdi_manifest.sources.gdc:GDCManifestSource",
         help="Build a manifest from the Genomic Data Commons",
     ),
     "pdc": SourceSpec(
-        target="gacdi_manifest.sources.pdc:PDCImporter",
+        target="gacdi_manifest.sources.pdc:PDCManifestSource",
         help="Build a manifest from the Proteomic Data Commons",
     ),
     "idc": SourceSpec(
-        target="gacdi_manifest.sources.idc:IDCImporter",
+        target="gacdi_manifest.sources.idc:IDCManifestSource",
         help="Build a manifest from the Imaging Data Commons",
     ),
 }
@@ -62,7 +62,11 @@ def get_source(name: str) -> "BuildImporter":  # noqa: F821 - forward ref for do
 get_importer = get_source
 
 
+# Preferred and legacy class names both resolve lazily to the source class.
 _CLASS_EXPORTS: dict[str, str] = {
+    "GDCManifestSource": "gdc",
+    "PDCManifestSource": "pdc",
+    "IDCManifestSource": "idc",
     "GDCImporter": "gdc",
     "PDCImporter": "pdc",
     "IDCImporter": "idc",
@@ -72,7 +76,10 @@ _CLASS_EXPORTS: dict[str, str] = {
 def __getattr__(name: str):
     source = _CLASS_EXPORTS.get(name)
     if source is not None:
-        return REGISTRY[source].load()
+        # Both the preferred class and its legacy alias live in the source
+        # module's namespace, so a plain attribute lookup returns either.
+        module = import_module(REGISTRY[source].target.split(":", 1)[0])
+        return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -81,7 +88,5 @@ __all__ = [
     "SourceSpec",
     "get_source",
     "get_importer",
-    "GDCImporter",
-    "PDCImporter",
-    "IDCImporter",
+    *sorted(_CLASS_EXPORTS),
 ]

@@ -24,7 +24,7 @@ import requests
 
 from .. import version_string
 from ..errors import ApiError, InputError
-from ..importer import BuildImporter
+from ..base import BaseManifestSource
 from ..model import FileRow, ManifestRow
 
 IDC_API = "https://api.imaging.datacommons.cancer.gov/v2"
@@ -38,7 +38,7 @@ def _split(value: str | None) -> list[str]:
     return [v.strip() for v in (value or "").split(",") if v.strip()]
 
 
-class IDCImporter(BuildImporter):
+class IDCManifestSource(BaseManifestSource):
     name = "idc"
     help = "Build a GCS manifest from the Imaging Data Commons (IDC), one row per DICOM series."
     manifest_dialect = "source"
@@ -154,3 +154,7 @@ class IDCImporter(BuildImporter):
             "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "query_filters": json.dumps(query, sort_keys=True, separators=(",", ":")),
         }
+
+
+# Compatibility alias: the historical class name. ``IDCManifestSource`` is preferred.
+IDCImporter = IDCManifestSource

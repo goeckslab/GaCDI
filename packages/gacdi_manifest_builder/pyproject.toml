@@ -26,6 +26,8 @@ dev = [
 
 [project.scripts]
 gacdi-manifest = "gacdi_manifest.cli:main"
+# Descriptive alias for the same entry point; the established `gacdi-manifest` CLI is retained.
+gacdi-manifest-builder = "gacdi_manifest.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/paulocilasjr/GaCDI"

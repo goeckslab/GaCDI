@@ -14,7 +14,7 @@ import sys
 from . import version_string
 from .base import RunConfig
 from .errors import GacdiError, InputError
-from .importers import REGISTRY, get_importer
+from .registry import REGISTRY, get_source
 
 log = logging.getLogger("gacdi")
 
@@ -170,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     log.info("gacdi %s", version_string())
 
     try:
-        importer = get_importer(args.database)
+        importer = get_source(args.database)
         summary = importer.run(_config_from_args(args))
     except GacdiError as exc:
         log.error("%s", exc)

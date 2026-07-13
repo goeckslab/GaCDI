@@ -49,7 +49,7 @@ def test_cli_parser_builds_without_importing_any_source():
     # (which is what keeps an optional dependency from breaking every subcommand).
     code = (
         "import sys; import gacdi.cli as c; c.build_parser();"
-        "mods=[m for m in sys.modules if m.startswith('gacdi.importers.')];"
+        "mods=[m for m in sys.modules if m.startswith('gacdi.sources.')];"
         "print(sorted(mods))"
     )
     out = subprocess.check_output([sys.executable, "-c", code], text=True).strip()
@@ -61,14 +61,14 @@ def test_cda_imports_without_its_optional_dependency():
     # not require the optional SDK to be installed.
     import importlib
 
-    module = importlib.import_module("gacdi.importers.cda")
-    assert module.CDAImporter().name == "cda"
+    module = importlib.import_module("gacdi.sources.cda")
+    assert module.CDADownloadSource().name == "cda"
 
 
 def test_unavailable_source_does_not_break_others(monkeypatch):
     broken = dict(REGISTRY)
     broken["broken"] = SourceSpec(target="gacdi._does_not_exist:Nope", help="broken")
-    monkeypatch.setattr("gacdi.importers.REGISTRY", broken)
+    monkeypatch.setattr("gacdi.registry.REGISTRY", broken)
     monkeypatch.setattr(cli, "REGISTRY", broken, raising=False)
 
     # The good sources still resolve and the parser still builds.

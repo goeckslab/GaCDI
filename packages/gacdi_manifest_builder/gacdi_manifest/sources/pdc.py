@@ -21,7 +21,7 @@ import requests
 
 from .. import version_string
 from ..errors import ApiError, InputError
-from ..importer import BuildImporter
+from ..base import BaseManifestSource
 from ..model import FileRow, ManifestRow
 
 PDC_GRAPHQL = "https://proteomic.datacommons.cancer.gov/graphql"
@@ -41,7 +41,7 @@ def _matches(value: str, wanted: str | None) -> bool:
     return bool(have & want) if want else True
 
 
-class PDCImporter(BuildImporter):
+class PDCManifestSource(BaseManifestSource):
     name = "pdc"
     help = "Build a DRS manifest from the Proteomic Data Commons (PDC)."
     manifest_dialect = "source"
@@ -185,3 +185,7 @@ class PDCImporter(BuildImporter):
             "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "query_filters": json.dumps(query, sort_keys=True, separators=(",", ":")),
         }
+
+
+# Compatibility alias: the historical class name. ``PDCManifestSource`` is preferred.
+PDCImporter = PDCManifestSource

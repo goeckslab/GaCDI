@@ -26,6 +26,8 @@ dev = [
 
 [project.scripts]
 gacdi = "gacdi.cli:main"
+# Descriptive alias for the same entry point; the established `gacdi` CLI is retained.
+gacdi-downloader = "gacdi.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/paulocilasjr/GaCDI"

@@ -1,95 +1,34 @@
-"""Lazy registry mapping database names to importer classes.
+"""Compatibility shim for the historical ``gacdi.importers`` package.
 
-Each entry is a :class:`SourceSpec` naming an import *target* (``module:Class``)
-that is only imported when the source is actually selected. This keeps a single
-broken or optional source (for example one whose extra runtime dependency is not
-installed) from breaking every other CLI subcommand: building the parser and
-listing sources never imports a source module.
+The canonical registry now lives in :mod:`gacdi.registry` and the source modules
+in :mod:`gacdi.sources`. This package re-exports the registry API and the source
+classes so existing imports keep working:
 
-``get_source`` is the preferred accessor; ``get_importer`` is kept as a
-compatibility alias. The importer classes also remain importable by name from
-this package (``from gacdi.importers import GDCImporter``) via lazy attribute
-access.
+    from gacdi.importers import REGISTRY, get_importer, GDCImporter
+    from gacdi.importers.gdc import GDCImporter, API_FILES_ENDPOINT
+
+New code should import from :mod:`gacdi.registry` and :mod:`gacdi.sources`.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from importlib import import_module
 
-from ..errors import InputError
+from ..registry import REGISTRY, SourceSpec, get_importer, get_source
 
-
-@dataclass(frozen=True)
-class SourceSpec:
-    """A lazily-loadable registry entry.
-
-    ``target`` is a ``"package.module:ClassName"`` string; ``load`` imports the
-    module and returns the class only when needed.
-    """
-
-    target: str
-    help: str = ""
-
-    def load(self) -> type:
-        module_path, _, attr = self.target.partition(":")
-        module = import_module(module_path)
-        return getattr(module, attr)
-
-
-REGISTRY: dict[str, SourceSpec] = {
-    "gdc": SourceSpec(
-        target="gacdi.importers.gdc:GDCImporter",
-        help="Import files from the Genomic Data Commons",
-    ),
-    "geo": SourceSpec(
-        target="gacdi.importers.geo:GEOImporter",
-        help="Import supplementary files from GEO",
-    ),
-    "sra": SourceSpec(
-        target="gacdi.importers.sra:SRAImporter",
-        help="Import runs from the Sequence Read Archive",
-    ),
-    "cda": SourceSpec(
-        target="gacdi.importers.cda:CDAImporter",
-        help="Import assets discovered through the Cancer Data Aggregator",
-    ),
-    "xena": SourceSpec(
-        target="gacdi.importers.xena:XenaImporter",
-        help="Import datasets from UCSC Xena hubs",
-    ),
-}
-
-
-def get_source(name: str, **kwargs):
-    """Instantiate the importer registered under *name* (lazy import)."""
-    try:
-        spec = REGISTRY[name]
-    except KeyError:
-        available = ", ".join(sorted(REGISTRY))
-        raise InputError(f"Unknown database '{name}'. Available: {available}.") from None
-    return spec.load()(**kwargs)
-
-
-# Compatibility alias: the historical accessor name.
-get_importer = get_source
-
-
-# Backwards-compatible lazy class re-exports: ``from gacdi.importers import
-# GDCImporter`` keeps working without importing every source at package import.
-_CLASS_EXPORTS: dict[str, str] = {
-    "GDCImporter": "gdc",
-    "GEOImporter": "geo",
-    "SRAImporter": "sra",
-    "CDAImporter": "cda",
-    "XenaImporter": "xena",
+_CLASS_EXPORTS = {
+    "GDCImporter": "gacdi.sources.gdc",
+    "GEOImporter": "gacdi.sources.geo",
+    "SRAImporter": "gacdi.sources.sra",
+    "CDAImporter": "gacdi.sources.cda",
+    "XenaImporter": "gacdi.sources.xena",
 }
 
 
 def __getattr__(name: str):
-    source = _CLASS_EXPORTS.get(name)
-    if source is not None:
-        return REGISTRY[source].load()
+    module_path = _CLASS_EXPORTS.get(name)
+    if module_path is not None:
+        return getattr(import_module(module_path), name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -98,9 +37,5 @@ __all__ = [
     "SourceSpec",
     "get_source",
     "get_importer",
-    "GDCImporter",
-    "GEOImporter",
-    "SRAImporter",
-    "CDAImporter",
-    "XenaImporter",
+    *_CLASS_EXPORTS,
 ]

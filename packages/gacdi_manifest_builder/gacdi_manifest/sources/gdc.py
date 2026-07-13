@@ -14,7 +14,7 @@ import requests
 
 from .. import gdc, version_string
 from ..filters import build_filters
-from ..importer import BuildImporter
+from ..base import BaseManifestSource
 from ..model import FileRow
 
 # Facets summarised in count-only previews.
@@ -42,7 +42,7 @@ def _read_id_list(path: str | None) -> list[str]:
         ]
 
 
-class GDCImporter(BuildImporter):
+class GDCManifestSource(BaseManifestSource):
     name = "gdc"
     help = "Build a manifest from the GDC files API."
 
@@ -116,3 +116,7 @@ class GDCImporter(BuildImporter):
 
     def fetch(self, session, query, *, max_files=None, total=None) -> list[FileRow]:
         return gdc.query_files(session, query, max_files=max_files, total=total)
+
+
+# Compatibility alias: the historical class name. ``GDCManifestSource`` is preferred.
+GDCImporter = GDCManifestSource

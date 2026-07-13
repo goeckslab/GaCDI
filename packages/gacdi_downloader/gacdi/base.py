@@ -68,8 +68,11 @@ class RunConfig:
     retry_provenance: str | None = None
 
 
-class BaseImporter(ABC):
-    """Base class for all repository importers."""
+class BaseDownloadSource(ABC):
+    """Base class for all repository download sources.
+
+    ``BaseImporter`` is retained as a compatibility alias (see below).
+    """
 
     #: registry key / CLI subcommand, e.g. "gdc".
     name: str = ""
@@ -240,3 +243,11 @@ class BaseImporter(ABC):
             message=str(last) if last else "unknown error",
             attempts=total_attempts,
         )
+
+
+# Compatibility alias: the historical base-class name. ``BaseDownloadSource`` is
+# the preferred internal name.
+BaseImporter = BaseDownloadSource
+
+
+__all__ = ["RunConfig", "BaseDownloadSource", "BaseImporter"]
