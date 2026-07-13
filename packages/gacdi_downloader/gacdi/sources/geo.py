@@ -8,37 +8,31 @@ phase; this covers the common "give me the supplementary files" need.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from ..auth import TokenFile
 from ..base import BaseDownloadSource, RunConfig
+from ..clients.geo import FTP_BASE, GEODirectoryClient, suppl_dir_url
 from ..errors import DownloadError, InputError
 from ..history import unique_path
 from ..manifest import parse_accessions
 from ..model import DownloadResult, FileEntry
 from ..net import stream_download
 
-FTP_BASE = "https://ftp.ncbi.nlm.nih.gov/geo"
-_HREF = re.compile(r'href="([^"?/][^"]*)"', re.IGNORECASE)
-_ACCESSION = re.compile(r"^(GSE|GSM)\d+$", re.IGNORECASE)
-
-
-def suppl_dir_url(accession: str) -> str:
-    """Return the NCBI ``suppl/`` directory URL for a GSE/GSM accession."""
-    acc = accession.upper()
-    if not _ACCESSION.match(acc):
-        raise InputError(f"Unsupported GEO accession: {accession} (expected GSE#/GSM#).")
-    prefix, digits = acc[:3], acc[3:]
-    stub = f"{prefix}{digits[:-3]}nnn" if len(digits) > 3 else f"{prefix}nnn"
-    kind = "series" if prefix == "GSE" else "samples"
-    return f"{FTP_BASE}/{kind}/{stub}/{acc}/suppl/"
+# Re-exported for compatibility; the canonical helpers live in clients.geo.
+__all__ = ["FTP_BASE", "suppl_dir_url", "GEODownloadSource", "GEOImporter"]
 
 
 class GEODownloadSource(BaseDownloadSource):
     name = "geo"
     supports_controlled = False
     supported_modes = ("accession",)
+
+    def __init__(self, session=None, client: GEODirectoryClient | None = None) -> None:
+        super().__init__(session=session)
+        # The transport client is injected for tests; a default is created when
+        # none is supplied so existing callers stay compatible.
+        self._client = client or GEODirectoryClient()
 
     def resolve(self, cfg: RunConfig, token: TokenFile | None) -> list[FileEntry]:
         accessions = parse_accessions(cfg.accessions, source=self.name)
@@ -50,15 +44,7 @@ class GEODownloadSource(BaseDownloadSource):
         return entries
 
     def _list_suppl_files(self, accession: str) -> list[FileEntry]:
-        url = suppl_dir_url(accession)
-        resp = self.session.get(url, timeout=60)
-        if resp.status_code >= 400:
-            raise DownloadError(f"Could not list GEO directory for {accession} (HTTP {resp.status_code}).")
-        names = [n for n in _HREF.findall(resp.text) if not n.startswith("..")]
-        # De-duplicate while preserving order.
-        seen: dict[str, None] = {}
-        for n in names:
-            seen.setdefault(n, None)
+        url, names = self._client.list_filenames(self.session, accession)
         return [
             FileEntry(
                 file_id=accession,
@@ -66,7 +52,7 @@ class GEODownloadSource(BaseDownloadSource):
                 url=url + name,
                 source=self.name,
             )
-            for name in seen
+            for name in names
         ]
 
     def download(
