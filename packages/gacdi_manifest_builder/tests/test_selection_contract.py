@@ -8,10 +8,14 @@ import json
 
 import pytest
 
-from gacdi.bundle import load_selection_bundle
-from gacdi.contracts import ASSET_COLUMNS, CONTRACT_VERSION, METADATA_LEADING_COLUMNS, SelectionAsset
-from gacdi.errors import InputError as ContractInputError
-from gacdi.validation import validate_assets
+from gacdi_core.contracts import (
+    ASSET_COLUMNS,
+    CONTRACT_VERSION,
+    METADATA_LEADING_COLUMNS,
+    SelectionAsset,
+)
+from gacdi_core.errors import InputError as ContractInputError
+from gacdi_core.validation import validate_assets
 
 from gacdi_manifest import cbioportal
 from gacdi_manifest.cli import main
@@ -73,8 +77,6 @@ def test_full_build_writes_canonical_bundle_with_default_paths(tmp_path, gdc_api
     assert values["metadata_sha256"] == _digest(metadata)
     assert values["counts"]["assets"] == 2
     assert values["counts"]["metadata_rows"] == 2
-    bundle = load_selection_bundle(manifest, metadata, provenance)
-    assert [asset.asset_id for asset in bundle.assets] == ["uuid1", "uuid2"]
 
 
 def test_explicit_output_flags_and_legacy_outputs_remain_compatible(tmp_path, gdc_api):

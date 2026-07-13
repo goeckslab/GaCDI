@@ -1,7 +1,7 @@
 # GaCDI GEO runtime: base image + entrez-direct.
 #   docker build -f containers/downloader/Dockerfile.geo \
 #     --build-arg BASE_IMAGE=gacdi-base:dev -t gacdi-geo:dev .
-ARG BASE_IMAGE=quay.io/goeckslab/gacdi-base:0.1.1
+ARG BASE_IMAGE=quay.io/goeckslab/gacdi-base:0.1.2
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="gacdi-geo" \

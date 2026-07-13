@@ -78,17 +78,22 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="database", required=True, metavar="DATABASE")
 
     # Subparsers are built by iterating the registry: each source adds its own
-    # query flags, then the shared flags are appended. The source is imported
-    # lazily here; if one source is unavailable it is still registered (with the
-    # shared flags) so the other subcommands remain usable, and the import error
-    # surfaces only when that subcommand is actually run.
+    # query flags, then the shared flags are appended. A source import failure is
+    # recorded on that subparser so the other commands remain usable and choosing
+    # the unavailable source produces a clean error. Deliberately keep
+    # add_arguments() outside the exception handler: parser-definition bugs must
+    # fail loudly instead of silently producing an incomplete command surface.
     for name in sorted(REGISTRY):
         spec = REGISTRY[name]
         p = sub.add_parser(name, help=spec.help)
         try:
-            get_source(name).add_arguments(p)
-        except Exception:  # noqa: BLE001 - defer an unavailable source to dispatch
-            pass
+            source = get_source(name)
+        except Exception as exc:  # noqa: BLE001 - isolate an unavailable source module
+            p.set_defaults(
+                _source_load_error=f"{type(exc).__name__}: {exc}"
+            )
+        else:
+            source.add_arguments(p)
         _add_common_arguments(p)
     return parser
 
@@ -357,6 +362,11 @@ def main(argv: list[str] | None = None) -> int:
     # Emit the running version to the job log so it is visible in Galaxy's job info.
     log.info("gacdi-manifest %s", version_string())
     try:
+        source_load_error = getattr(args, "_source_load_error", "")
+        if source_load_error:
+            raise InputError(
+                f"Manifest source '{args.database}' is unavailable: {source_load_error}"
+            )
         importer = get_importer(args.database)
         return _run(importer, args)
     except ManifestError as exc:

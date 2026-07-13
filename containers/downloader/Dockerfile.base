@@ -25,5 +25,7 @@ COPY packages/gacdi_downloader/pyproject.toml packages/gacdi_downloader/README.m
 COPY packages/gacdi_downloader/gacdi /opt/gacdi/gacdi
 RUN python -m pip install --no-cache-dir /opt/gacdi && python -c "import gacdi; print(gacdi.__version__)"
 
+ARG GACDI_BUILD=local
+ENV GACDI_BUILD=${GACDI_BUILD}
 ENV PATH=/opt/conda/bin:$PATH
 USER $MAMBA_USER

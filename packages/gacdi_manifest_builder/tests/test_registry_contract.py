@@ -7,6 +7,8 @@ not break the other subcommands.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from gacdi_manifest import cli
@@ -59,8 +61,31 @@ def test_unavailable_source_does_not_break_others(monkeypatch):
     # The good sources still resolve and the parser still builds (the broken
     # source is registered but its query flags are simply absent).
     assert get_source("gdc").name == "gdc"
-    cli.build_parser()
+    parser = cli.build_parser()
+    args = parser.parse_args(["broken"])
+    assert "ModuleNotFoundError" in args._source_load_error
 
-    # The broken source fails only when it is actually selected.
+    # Direct registry access still reports the import failure.
     with pytest.raises(ModuleNotFoundError):
         get_source("broken")
+
+    # CLI dispatch translates it into the stable input-error exit code rather
+    # than leaking a traceback from the lazy import.
+    assert cli.main(["broken"]) == InputError.exit_code
+
+
+def test_source_argument_definition_errors_are_not_suppressed(monkeypatch):
+    class BrokenArguments:
+        name = "broken"
+
+        def add_arguments(self, parser):
+            raise RuntimeError("bad parser definition")
+
+    broken = dict(REGISTRY)
+    broken["broken"] = SourceSpec(target=f"{__name__}:BrokenArguments", help="broken")
+    monkeypatch.setattr("gacdi_manifest.registry.REGISTRY", broken)
+    monkeypatch.setattr(cli, "REGISTRY", broken, raising=False)
+    monkeypatch.setattr(sys.modules[__name__], "BrokenArguments", BrokenArguments, raising=False)
+
+    with pytest.raises(RuntimeError, match="bad parser definition"):
+        cli.build_parser()

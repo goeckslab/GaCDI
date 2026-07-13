@@ -1,7 +1,7 @@
 # GaCDI GDC runtime: base image + gdc-client.
 #   docker build -f containers/downloader/Dockerfile.gdc \
 #     --build-arg BASE_IMAGE=gacdi-base:dev -t gacdi-gdc:dev .
-ARG BASE_IMAGE=quay.io/goeckslab/gacdi-base:0.1.1
+ARG BASE_IMAGE=quay.io/goeckslab/gacdi-base:0.1.2
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="gacdi-gdc" \

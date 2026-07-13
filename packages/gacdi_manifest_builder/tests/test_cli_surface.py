@@ -74,10 +74,17 @@ def test_public_import_surface():
 
 def test_builder_consumes_shared_contract_surface():
     # The builder depends on the shared foundation for these symbols.
-    from gacdi.contracts import ASSET_COLUMNS  # noqa: F401
-    from gacdi.errors import InputError as ContractInputError  # noqa: F401
-    from gacdi.net import build_session  # noqa: F401
-    from gacdi.validation import validate_assets  # noqa: F401
+    from gacdi_core.contracts import ASSET_COLUMNS  # noqa: F401
+    from gacdi_core.errors import InputError as ContractInputError  # noqa: F401
+    from gacdi_core.net import build_session  # noqa: F401
+    from gacdi_core.validation import validate_assets  # noqa: F401
+
+
+def test_builder_errors_share_the_core_root():
+    from gacdi_core.errors import GacdiError, InputError as CoreInputError
+
+    assert issubclass(ManifestError, GacdiError)
+    assert issubclass(InputError, CoreInputError)
 
 
 # --- registry contract ------------------------------------------------------

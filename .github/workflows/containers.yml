@@ -94,6 +94,8 @@ jobs:
         with:
           context: .
           file: containers/downloader/Dockerfile.base
+          build-args: |
+            GACDI_BUILD=${{ github.sha }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-base:${{ steps.version.outputs.version }}
 

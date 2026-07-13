@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from gacdi_core.errors import GacdiError, InputError as CoreInputError
 
-class ManifestError(Exception):
+
+class ManifestError(GacdiError):
     """Base class for expected manifest-builder failures."""
 
     exit_code = 1
 
 
-class InputError(ManifestError):
+class InputError(ManifestError, CoreInputError):
     """Missing, malformed or contradictory user inputs."""
 
     exit_code = 2

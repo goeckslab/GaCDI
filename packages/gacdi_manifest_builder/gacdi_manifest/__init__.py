@@ -13,7 +13,7 @@ plus a match report so selections and joins are never silently wrong.
 
 import os
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 # Build identifier baked into the container image at build time (e.g. the git
 # commit SHA). Lets you confirm the exact code a run used, even when the version
