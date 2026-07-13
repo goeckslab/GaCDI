@@ -64,9 +64,9 @@ class GDCImporter(BuildImporter):
         cohort.add_argument("--file-id-list", dest="file_id_list",
                             help="Path to a file of GDC file ids (one per line) to match.")
         cohort.add_argument("--case-list", dest="case_list",
-                            help="Path to a file of case submitter ids/barcodes (one per line).")
+                            help="Path to case submitter barcodes (one per line; not native UUIDs).")
         cohort.add_argument("--sample-list", dest="sample_list",
-                            help="Path to a file of sample submitter ids/barcodes (one per line).")
+                            help="Path to sample submitter barcodes (one per line; not native UUIDs).")
 
         adv = p.add_argument_group("advanced filters")
         adv.add_argument("--extra-filter", dest="extra_filters", action="append", default=[],

@@ -25,6 +25,9 @@
             --manifest-out '$manifest'
             --metadata-out '$metadata'
             --report-out '$report'
+            --selection-manifest-out '$selection_manifest'
+            --selection-metadata-out '$selection_metadata'
+            --selection-provenance-out '$selection_provenance'
     ]]></command>
     <inputs>
         <section name="core" title="What to download" expanded="true">
@@ -69,6 +72,9 @@
         <data name="manifest" format="tabular" label="${tool.name} on ${on_string}: IDC GCS manifest"/>
         <data name="metadata" format="tabular" label="${tool.name} on ${on_string}: metadata"/>
         <data name="report" format="tabular" label="${tool.name} on ${on_string}: report"/>
+        <data name="selection_manifest" format="tabular" label="${tool.name} on ${on_string}: canonical selection manifest"/>
+        <data name="selection_metadata" format="tabular" label="${tool.name} on ${on_string}: canonical selection metadata"/>
+        <data name="selection_provenance" format="json" label="${tool.name} on ${on_string}: selection provenance"/>
     </outputs>
     <tests>
         <!-- Live preview: a light IDC instance count; run with `planemo test`. -->
@@ -89,7 +95,8 @@
 
 Builds a **targeted** download manifest from the NCI `Imaging Data Commons
 <https://imaging.datacommons.cancer.gov/>`_ (IDC), a CRDC node, so you fetch exactly the
-DICOM imaging series you want. It produces three outputs:
+DICOM imaging series you want. It produces three compatibility outputs plus the
+canonical three-file selection bundle:
 
 1. **IDC GCS manifest** — the multi-source download contract, one row **per DICOM series**.
    Each row carries ``download_method=gcs`` and ``access_url =
@@ -98,6 +105,8 @@ DICOM imaging series you want. It produces three outputs:
 2. **metadata** — a harmonized core (``project`` = collection, ``case_id`` = PatientID …)
    plus every native IDC field preserved as ``idc__`` prefixed columns.
 3. **report** — match counts and provenance; in preview mode, the matching instance count.
+4. **canonical selection manifest / metadata / provenance** — the validated,
+   hash-bound source-neutral bundle reserved for the future IDC GCS downloader.
 
 **Getting started**
 

@@ -5,15 +5,15 @@ import pytest
 from gacdi_manifest.gdc import FILES_ENDPOINT
 
 SAMPLE_TSV = (
-    "file_id\tfile_name\tmd5sum\tfile_size\tstate\tdata_format\t"
+    "file_id\tfile_name\tmd5sum\tfile_size\tstate\tdata_format\taccess\t"
     "cases.0.case_id\tcases.0.submitter_id\t"
     "cases.0.samples.0.sample_id\tcases.0.samples.0.submitter_id\t"
     "cases.0.samples.0.sample_type\tcases.0.project.project_id\t"
     "cases.0.demographic.gender\tcases.0.diagnoses.0.age_at_diagnosis\t"
     "cases.0.diagnoses.0.ajcc_pathologic_stage\n"
-    "uuid1\tA.svs\tmd5a\t100\treleased\tSVS\tcase-uuid-1\tTCGA-E9-A5FL\t"
+    "uuid1\tA.svs\tmd5a\t100\treleased\tSVS\topen\tcase-uuid-1\tTCGA-E9-A5FL\t"
     "sample-uuid-1\tTCGA-E9-A5FL-01A\tPrimary Tumor\tTCGA-BRCA\tfemale\t21915\tStage IIA\n"
-    "uuid2\tB.svs\tmd5b\t200\treleased\tSVS\tcase-uuid-2\tTCGA-XX-YYYY\t"
+    "uuid2\tB.svs\tmd5b\t200\treleased\tSVS\topen\tcase-uuid-2\tTCGA-XX-YYYY\t"
     "sample-uuid-2\tTCGA-XX-YYYY-01A\tPrimary Tumor\tTCGA-BRCA\tmale\t25000\tStage IIIB\n"
 )
 
