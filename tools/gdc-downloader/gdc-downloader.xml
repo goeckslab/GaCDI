@@ -9,7 +9,7 @@
     <description>Acquire data from the NCI Genomic Data Commons</description>
     <command><![CDATA[
         mkdir ./downloads &&
-        mkfifo token.pipe &&
+        mkfifo -m 600 token.pipe &&
         (printf '%s' "\$GDC_AUTH_TOKEN" > token.pipe &) &&
         gdc-client download -m "$manifest_file" -t token.pipe -d ./downloads &&
         rm -f token.pipe &&
