@@ -7,7 +7,7 @@ import requests
 from gacdi.base import RunConfig
 from gacdi.errors import ChecksumError, DownloadError, InputError
 from gacdi.importers.gdc import API_FILES_ENDPOINT, GDCImporter
-from gacdi.model import FileEntry
+from gacdi.model import DownloadResult, FileEntry
 
 
 def test_resolve_manifest(tmp_path):
@@ -33,6 +33,50 @@ def test_resolve_manifest_requires_access_declaration_and_token(tmp_path):
     )
     entries = GDCImporter().resolve(cfg, None)
     assert "provide a GDC token" in entries[0].extra["preflight_error"]
+
+
+def test_legacy_controlled_manifest_preflight_blocks_without_token(tmp_path):
+    manifest = tmp_path / "m.txt"
+    manifest.write_text("id\tfilename\tmd5\tsize\tstate\nID1\ta.bam\tx\t10\treleased\n")
+    summary = GDCImporter().run(
+        RunConfig(
+            input_mode="manifest",
+            manifest=str(manifest),
+            options={"legacy_access": "controlled"},
+            output_dir=str(tmp_path / "downloads"),
+            summary=str(tmp_path / "summary.tsv"),
+            retries=2,
+        )
+    )
+    assert summary.results[0].status == "failed"
+    assert summary.results[0].attempts == 0
+    assert "controlled" in summary.results[0].message
+
+
+def test_legacy_controlled_manifest_token_is_ephemeral(tmp_path, monkeypatch):
+    manifest = tmp_path / "m.txt"
+    manifest.write_text("id\tfilename\tmd5\tsize\tstate\nID1\ta.bam\tx\t10\treleased\n")
+    token = tmp_path / "token.txt"
+    token.write_text("secret")
+    observed = []
+
+    def fake_download(self, entry, dest_dir, cfg, token_file):
+        observed.append((str(token_file), Path(str(token_file)).read_text()))
+        return DownloadResult(entry, "ok", bytes=0)
+
+    monkeypatch.setattr(GDCImporter, "download", fake_download)
+    GDCImporter().run(
+        RunConfig(
+            input_mode="manifest",
+            manifest=str(manifest),
+            options={"legacy_access": "controlled"},
+            token=str(token),
+            output_dir=str(tmp_path / "downloads"),
+            summary=str(tmp_path / "summary.tsv"),
+        )
+    )
+    assert observed and observed[0][1] == "secret"
+    assert not Path(observed[0][0]).exists()
 
 
 def test_resolve_manifest_rejects_path_like_asset_id(tmp_path):
