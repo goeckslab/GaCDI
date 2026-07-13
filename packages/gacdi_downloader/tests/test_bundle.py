@@ -260,7 +260,7 @@ def test_gdc_bundle_maps_assets_and_metadata(tmp_path):
 
 def test_gdc_bundle_run_materializes_all_handoff_artifacts(tmp_path, monkeypatch):
     paths = write_bundle(tmp_path)
-    monkeypatch.setattr("gacdi.importers.gdc.require", lambda _: "gdc-client")
+    monkeypatch.setattr("gacdi.clients.gdc.require", lambda _: "gdc-client")
 
     def fake_run(command, **kwargs):
         destination = command[command.index("-d") + 1]
@@ -268,7 +268,7 @@ def test_gdc_bundle_run_materializes_all_handoff_artifacts(tmp_path, monkeypatch
         subdir.mkdir(parents=True)
         (subdir / "sample.vcf.gz").write_bytes(b"payload")
 
-    monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
+    monkeypatch.setattr("gacdi.clients.gdc.run", fake_run)
     cfg = RunConfig(
         input_mode="bundle",
         manifest=str(paths[0]),
@@ -494,14 +494,14 @@ def test_gdc_bundle_download_reports_actual_checksums(tmp_path, monkeypatch):
     output_dir = tmp_path / "downloads"
     output_dir.mkdir()
 
-    monkeypatch.setattr("gacdi.importers.gdc.require", lambda binary: binary)
+    monkeypatch.setattr("gacdi.clients.gdc.require", lambda binary: binary)
 
     def fake_run(command, **kwargs):
         directory = output_dir / "A1"
         directory.mkdir()
         (directory / "sample.vcf.gz").write_bytes(b"payload")
 
-    monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
+    monkeypatch.setattr("gacdi.clients.gdc.run", fake_run)
     result = GDCImporter().download(entry, str(output_dir), cfg, None)
     assert result.status == "ok"
     assert result.checksum_verified is True

@@ -103,7 +103,7 @@ def test_download_rejects_unsafe_id_before_client_or_cleanup(tmp_path, monkeypat
         called = True
         return "gdc-client"
 
-    monkeypatch.setattr("gacdi.importers.gdc.require", fake_require)
+    monkeypatch.setattr("gacdi.clients.gdc.require", fake_require)
     with pytest.raises(InputError, match="Unsafe GDC asset id"):
         GDCImporter().download(
             FileEntry(file_id="..", filename="a.bam"),
@@ -168,14 +168,14 @@ def test_resolve_query_no_filters(tmp_path):
 
 
 def test_download_flattens_and_cleans(tmp_path, monkeypatch):
-    monkeypatch.setattr("gacdi.importers.gdc.require", lambda b: b)
+    monkeypatch.setattr("gacdi.clients.gdc.require", lambda b: b)
 
     def fake_run(cmd, **kwargs):
         d = Path(tmp_path) / "ID1"
         d.mkdir(parents=True, exist_ok=True)
         (d / "a.bam").write_bytes(b"payload")
 
-    monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
+    monkeypatch.setattr("gacdi.clients.gdc.run", fake_run)
     entry = FileEntry(file_id="ID1", filename="a.bam", source="gdc")
     res = GDCImporter().download(entry, str(tmp_path), RunConfig(assign_ext="cram"), None)
     assert res.status == "ok"
@@ -186,21 +186,21 @@ def test_download_flattens_and_cleans(tmp_path, monkeypatch):
 
 
 def test_download_no_files_fails(tmp_path, monkeypatch):
-    monkeypatch.setattr("gacdi.importers.gdc.require", lambda b: b)
-    monkeypatch.setattr("gacdi.importers.gdc.run", lambda cmd, **kw: None)
+    monkeypatch.setattr("gacdi.clients.gdc.require", lambda b: b)
+    monkeypatch.setattr("gacdi.clients.gdc.run", lambda cmd, **kw: None)
     with pytest.raises(DownloadError):
         GDCImporter().download(FileEntry(file_id="ID1", filename="a.bam"), str(tmp_path), RunConfig(), None)
 
 
 def test_bundle_download_rejects_source_size_mismatch(tmp_path, monkeypatch):
-    monkeypatch.setattr("gacdi.importers.gdc.require", lambda _: "gdc-client")
+    monkeypatch.setattr("gacdi.clients.gdc.require", lambda _: "gdc-client")
 
     def fake_run(cmd, **kwargs):
         subdir = tmp_path / "ID1"
         subdir.mkdir()
         (subdir / "a.bam").write_bytes(b"short")
 
-    monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
+    monkeypatch.setattr("gacdi.clients.gdc.run", fake_run)
     entry = FileEntry(file_id="ID1", filename="a.bam", size=100, source="gdc")
     with pytest.raises(ChecksumError, match="Size mismatch"):
         GDCImporter().download(
@@ -214,14 +214,14 @@ def test_bundle_download_rejects_source_size_mismatch(tmp_path, monkeypatch):
 
 def test_bundle_download_verifies_sha256_source_checksum(tmp_path, monkeypatch):
     payload = b"source bytes"
-    monkeypatch.setattr("gacdi.importers.gdc.require", lambda _: "gdc-client")
+    monkeypatch.setattr("gacdi.clients.gdc.require", lambda _: "gdc-client")
 
     def fake_run(cmd, **kwargs):
         subdir = tmp_path / "ID1"
         subdir.mkdir()
         (subdir / "a.dat").write_bytes(payload)
 
-    monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
+    monkeypatch.setattr("gacdi.clients.gdc.run", fake_run)
     expected = hashlib.sha256(payload).hexdigest()
     entry = FileEntry(
         file_id="ID1",

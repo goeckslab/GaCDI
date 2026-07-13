@@ -17,26 +17,27 @@ from __future__ import annotations
 import logging
 import re
 import shutil
-import subprocess
 from pathlib import Path
 
 from ..auth import TokenFile
 from ..base import BaseDownloadSource, RunConfig
 from ..bundle import load_selection_bundle, sha256_file
+from ..clients.gdc import (
+    API_FILES_ENDPOINT,
+    DEFAULT_PAGE_SIZE as _PAGE_SIZE,
+    DEFAULT_QUERY_FIELDS as _QUERY_FIELDS,
+    GDCClientTool,
+    GDCFilesApiClient,
+)
 from ..errors import ChecksumError, DownloadError, InputError
 from ..manifest import load_query, parse_gdc_manifest
 from ..history import unique_path
 from ..model import DownloadResult, FileEntry, ProducedDataset
 from ..net import md5sum
-from ..proc import require, run
 
 log = logging.getLogger("gacdi.gdc")
 
-API_FILES_ENDPOINT = "https://api.gdc.cancer.gov/files"
-_QUERY_FIELDS = "file_id,file_name,md5sum,file_size"
-# Files fetched per request when paging a query. The importer pages through *all*
-# matching files regardless of this value; it only controls request granularity.
-_PAGE_SIZE = 500
+# Re-exported for compatibility; the canonical constant lives in clients.gdc.
 _SAFE_GDC_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _SAFE_GALAXY_EXT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _GDC_PROFILE_EXTENSIONS = {
@@ -68,6 +69,18 @@ class GDCDownloadSource(BaseDownloadSource):
     name = "gdc"
     supports_controlled = True
     supported_modes = ("manifest", "bundle", "query")
+
+    def __init__(
+        self,
+        session=None,
+        files_client: GDCFilesApiClient | None = None,
+        tool: GDCClientTool | None = None,
+    ) -> None:
+        super().__init__(session=session)
+        # Transport is injected for tests; defaults are created when not supplied
+        # so existing callers stay compatible.
+        self._files_client = files_client or GDCFilesApiClient()
+        self._tool = tool or GDCClientTool()
 
     def resolve(self, cfg: RunConfig, token: TokenFile | None) -> list[FileEntry]:
         if cfg.input_mode == "manifest":
@@ -233,48 +246,28 @@ class GDCDownloadSource(BaseDownloadSource):
         if not filters:
             raise InputError("GDC query JSON must contain a 'filters' object.")
         fields = query.get("fields", _QUERY_FIELDS)
-        # A user-supplied "size" only sets the page size; the loop below pages
-        # through *every* matching file so nothing is silently capped. Sort by a
-        # stable key so paging is consistent across requests.
+        # A user-supplied "size" only sets the page size; the client pages through
+        # *every* matching file so nothing is silently capped.
         page_size = int(query.get("size", _PAGE_SIZE)) or _PAGE_SIZE
+        endpoint = str(cfg.options.get("gdc_files_endpoint") or self._files_client.endpoint)
 
-        entries: list[FileEntry] = []
-        start, total = 0, None
-        while True:
-            payload = {
-                "filters": filters,
-                "fields": fields,
-                "format": "JSON",
-                "sort": "file_id:asc",
-                "size": page_size,
-                "from": start,
-            }
-            endpoint = str(cfg.options.get("gdc_files_endpoint") or API_FILES_ENDPOINT)
-            resp = self.session.post(endpoint, json=payload, timeout=60)
-            if resp.status_code >= 400:
-                raise DownloadError(f"GDC API returned HTTP {resp.status_code}: {resp.text[:200]}")
-            data = resp.json().get("data", {})
-            hits = data.get("hits", [])
-            entries.extend(
-                FileEntry(
-                    file_id=h["file_id"],
-                    filename=h.get("file_name") or h["file_id"],
-                    md5=h.get("md5sum"),
-                    size=int(h["file_size"]) if str(h.get("file_size", "")).isdigit() else None,
-                    source=self.name,
-                )
-                for h in hits
-                if h.get("file_id")
+        entries: list[FileEntry] = [
+            FileEntry(
+                file_id=h["file_id"],
+                filename=h.get("file_name") or h["file_id"],
+                md5=h.get("md5sum"),
+                size=int(h["file_size"]) if str(h.get("file_size", "")).isdigit() else None,
+                source=self.name,
             )
-            if total is None:
-                try:
-                    total = int(data.get("pagination", {}).get("total", len(entries)))
-                except (TypeError, ValueError):
-                    total = len(entries)
-            start += len(hits)
-            # Stop when the server returns no more rows, or we've covered the total.
-            if not hits or start >= total:
-                break
+            for h in self._files_client.iter_hits(
+                self.session,
+                filters=filters,
+                fields=fields,
+                page_size=page_size,
+                endpoint=endpoint,
+            )
+            if h.get("file_id")
+        ]
 
         if not entries:
             raise InputError("GDC query matched no files.")
@@ -302,16 +295,7 @@ class GDCDownloadSource(BaseDownloadSource):
                 f"Refusing to use GDC output path outside the destination: {subdir}"
             ) from exc
 
-        gdc = require("gdc-client")
-        cmd = [gdc, "download", entry.file_id, "-d", dest_dir]
-        if token is not None:
-            cmd += ["-t", str(token)]
-        try:
-            run(cmd, secret_flags=("-t",))
-        except subprocess.CalledProcessError as exc:
-            raise DownloadError(
-                f"gdc-client failed for {entry.file_id}: {(exc.stderr or '').strip()[:300]}"
-            ) from exc
+        self._tool.download(entry.file_id, dest_dir, token)
 
         # Re-resolve after the external client returns so a newly created symlink
         # cannot redirect iteration or cleanup outside the destination.
