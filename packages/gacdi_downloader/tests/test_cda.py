@@ -27,26 +27,38 @@ def test_row_to_entry_https_drs_becomes_url():
     assert e.url == "https://host/f"
 
 
-def test_resolve_maps_rows(monkeypatch, tmp_path):
+class _FakeAdapter:
+    def __init__(self, rows):
+        self._rows = rows
+        self.calls = []
+
+    def fetch_rows(self, **kwargs):
+        self.calls.append(kwargs)
+        return self._rows
+
+
+def test_resolve_maps_rows(tmp_path):
     q = tmp_path / "q.json"
     q.write_text('{"table": "file", "match_all": ["x"]}')
-    monkeypatch.setattr(
-        "gacdi.importers.cda._fetch_rows",
-        lambda **kw: [
-            {"file_id": "F1", "data_source": "GDC"},
-            {"file_id": "F2", "data_source": "IDC"},
-        ],
+    adapter = _FakeAdapter([
+        {"file_id": "F1", "data_source": "GDC"},
+        {"file_id": "F2", "data_source": "IDC"},
+    ])
+    entries = CDAImporter(adapter=adapter).resolve(
+        RunConfig(input_mode="query", query_json=str(q)), None
     )
-    entries = CDAImporter().resolve(RunConfig(input_mode="query", query_json=str(q)), None)
     assert [e.file_id for e in entries] == ["F1", "F2"]
+    # The source maps the query and routes "table" to the adapter.
+    assert adapter.calls[0]["table"] == "file"
 
 
-def test_resolve_empty_raises(monkeypatch, tmp_path):
+def test_resolve_empty_raises(tmp_path):
     q = tmp_path / "q.json"
     q.write_text("{}")
-    monkeypatch.setattr("gacdi.importers.cda._fetch_rows", lambda **kw: [])
     with pytest.raises(InputError):
-        CDAImporter().resolve(RunConfig(input_mode="query", query_json=str(q)), None)
+        CDAImporter(adapter=_FakeAdapter([])).resolve(
+            RunConfig(input_mode="query", query_json=str(q)), None
+        )
 
 
 def test_download_skips_without_url(tmp_path):

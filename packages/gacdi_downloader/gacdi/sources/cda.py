@@ -20,30 +20,12 @@ from pathlib import Path
 
 from ..auth import TokenFile
 from ..base import BaseDownloadSource, RunConfig
-from ..errors import DependencyError, InputError
+from ..clients.cda import CDASdkAdapter
+from ..errors import InputError
 from ..history import unique_path
 from ..manifest import load_query
 from ..model import DownloadResult, FileEntry
 from ..net import stream_download
-
-
-def _fetch_rows(**kwargs) -> list[dict]:
-    """Call cdapython.fetch_rows and normalise the result to a list of dicts.
-
-    Imported lazily so the package works without cdapython installed; it is only
-    required at runtime for the CDA tool (provided by the gacdi-cda container).
-    """
-    try:
-        from cdapython import fetch_rows  # type: ignore
-    except ImportError as exc:  # pragma: no cover - exercised via container only
-        raise DependencyError(
-            "The 'cdapython' package is required for the CDA importer. It is "
-            "provided by the GaCDI CDA container image."
-        ) from exc
-    result = fetch_rows(**kwargs)
-    if hasattr(result, "to_dict"):  # pandas DataFrame
-        return result.to_dict("records")
-    return list(result)
 
 
 def _first(row: dict, *keys: str):
@@ -78,10 +60,16 @@ class CDADownloadSource(BaseDownloadSource):
     supports_controlled = False
     supported_modes = ("query",)
 
+    def __init__(self, session=None, adapter: CDASdkAdapter | None = None) -> None:
+        super().__init__(session=session)
+        # The SDK adapter is injected for tests; a default is created when none is
+        # supplied so existing callers stay compatible.
+        self._adapter = adapter or CDASdkAdapter()
+
     def resolve(self, cfg: RunConfig, token: TokenFile | None) -> list[FileEntry]:
         query = load_query(cfg.query_json)
         table = query.pop("table", "file")
-        rows = _fetch_rows(table=table, **query)
+        rows = self._adapter.fetch_rows(table=table, **query)
         entries = [row_to_entry(r) for r in rows if r]
         if not entries:
             raise InputError("CDA query matched no files.")
