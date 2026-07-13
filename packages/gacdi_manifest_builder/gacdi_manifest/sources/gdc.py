@@ -12,9 +12,10 @@ import json
 
 import requests
 
-from .. import gdc, version_string
-from ..filters import build_filters
+from .. import version_string
 from ..base import BaseManifestSource
+from ..clients.gdc import GDCFilesClient
+from ..filters import build_filters
 from ..model import FileRow
 
 # Facets summarised in count-only previews.
@@ -42,9 +43,33 @@ def _read_id_list(path: str | None) -> list[str]:
         ]
 
 
+def _row_to_filerow(row: dict) -> FileRow:
+    """Map one raw GDC TSV row to a :class:`FileRow` (source-owned mapping)."""
+
+    def pick(*keys: str) -> str:
+        for k in keys:
+            if row.get(k) not in (None, ""):
+                return str(row[k]).strip()
+        return ""
+
+    return FileRow(
+        file_id=pick("file_id", "id"),
+        filename=pick("file_name", "filename"),
+        md5=pick("md5sum", "md5"),
+        size=pick("file_size", "size"),
+        state=pick("state") or "released",
+        meta=dict(row),
+    )
+
+
 class GDCManifestSource(BaseManifestSource):
     name = "gdc"
     help = "Build a manifest from the GDC files API."
+
+    def __init__(self, client: GDCFilesClient | None = None) -> None:
+        # The transport client is injected for tests; a default is created when
+        # none is supplied so existing callers stay compatible.
+        self._client = client or GDCFilesClient()
 
     def add_arguments(self, p) -> None:
         facets = p.add_argument_group("guided filters")
@@ -102,20 +127,21 @@ class GDCManifestSource(BaseManifestSource):
         """Build the run's provenance record (source, endpoint, query, when, version)."""
         return {
             "source": "gdc",
-            "endpoint": gdc.FILES_ENDPOINT,
+            "endpoint": self._client.endpoint,
             "tool_version": version_string(),
             "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "query_filters": json.dumps(query, sort_keys=True, separators=(",", ":")),
         }
 
     def count(self, session: requests.Session, query: dict) -> int:
-        return gdc.count(session, query)
+        return self._client.count(session, query)
 
     def facets(self, session: requests.Session, query: dict) -> dict:
-        return gdc.facets(session, query, PREVIEW_FACETS)
+        return self._client.facets(session, query, PREVIEW_FACETS)
 
     def fetch(self, session, query, *, max_files=None, total=None) -> list[FileRow]:
-        return gdc.query_files(session, query, max_files=max_files, total=total)
+        rows = self._client.fetch_rows(session, query, max_files=max_files, total=total)
+        return [_row_to_filerow(row) for row in rows]
 
 
 # Compatibility alias: the historical class name. ``GDCManifestSource`` is preferred.
