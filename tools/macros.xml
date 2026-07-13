@@ -1,10 +1,10 @@
 <macros>
     <!-- ===== Version tokens (keep in sync with pyproject.toml and containers/) ===== -->
-    <token name="@TOOL_VERSION@">0.1.0</token>
+    <token name="@TOOL_VERSION@">0.1.1</token>
     <token name="@VERSION_SUFFIX@">0</token>
     <token name="@PROFILE@">22.05</token>
-    <!-- Quay namespace that hosts the runtime images. Placeholder — confirm before publishing. -->
-    <token name="@QUAY_ORG@">paulocilasjr</token>
+    <!-- Quay namespace used by the container publishing workflow. -->
+    <token name="@QUAY_ORG@">goeckslab</token>
     <!-- Conda fallback versions -->
     <token name="@GDC_VERSION@">2.3</token>
     <token name="@SRA_VERSION@">3.1.1</token>

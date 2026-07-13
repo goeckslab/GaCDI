@@ -1,0 +1,7 @@
+name: base
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - requests>=2.28
