@@ -20,18 +20,16 @@ from __future__ import annotations
 import datetime
 import json
 
-import requests
-
 from .. import version_string
-from ..errors import ApiError, InputError
 from ..base import BaseManifestSource
+from ..clients.idc import IDC_API, IDCCohortClient
+from ..errors import InputError
 from ..model import FileRow, ManifestRow
 
-IDC_API = "https://api.imaging.datacommons.cancer.gov/v2"
 IDC_GCS_BUCKET = "gs://idc-open-data/"
-# Series-identifying manifest fields (instance-grained; we dedup to series).
-_FIELDS = ["collection_id", "PatientID", "StudyInstanceUID", "SeriesInstanceUID", "crdc_series_uuid"]
-_PAGE_SIZE = 5000
+
+# Re-exported for compatibility; the canonical constant lives in clients.idc.
+__all__ = ["IDC_API", "IDC_GCS_BUCKET", "IDCManifestSource", "IDCImporter"]
 
 
 def _split(value: str | None) -> list[str]:
@@ -42,6 +40,11 @@ class IDCManifestSource(BaseManifestSource):
     name = "idc"
     help = "Build a GCS manifest from the Imaging Data Commons (IDC), one row per DICOM series."
     manifest_dialect = "source"
+
+    def __init__(self, client: IDCCohortClient | None = None) -> None:
+        # The transport client is injected for tests; a default is created when
+        # none is supplied so existing callers stay compatible.
+        self._client = client or IDCCohortClient()
 
     def add_arguments(self, p) -> None:
         f = p.add_argument_group("guided filters")
@@ -63,63 +66,38 @@ class IDCManifestSource(BaseManifestSource):
             )
         return {"filters": filters}
 
-    # --- REST plumbing ----------------------------------------------------
-    def _preview(self, session, filters: dict, *, page_size: int, next_page: str | None):
-        body = {"cohort_def": {"name": "gacdi", "description": "gacdi", "filters": filters},
-                "fields": _FIELDS}
-        params: dict = {"page_size": page_size}
-        if next_page:
-            params["next_page"] = next_page
-        try:
-            resp = session.post(IDC_API + "/cohorts/manifest/preview",
-                                params=params, json=body, timeout=120)
-        except requests.RequestException as exc:  # pragma: no cover - network only
-            raise ApiError(f"IDC request failed: {exc}") from exc
-        if resp.status_code >= 400:
-            raise ApiError(f"IDC API returned HTTP {resp.status_code}: {resp.text[:300]}")
-        data = resp.json()
-        return data.get("manifest") or {}, data.get("next_page")
-
     def _series(self, session, query: dict, *, max_files=None) -> list[FileRow]:
         """Page the instance manifest, collapsing to one FileRow per series."""
         seen: set[str] = set()
         rows: list[FileRow] = []
-        token = None
-        while True:
-            manifest, token = self._preview(session, query["filters"],
-                                            page_size=_PAGE_SIZE, next_page=token)
-            batch = manifest.get("manifest_data") or []
-            for r in batch:
-                uuid = r.get("crdc_series_uuid")
-                if not uuid or uuid in seen:
-                    continue
-                seen.add(uuid)
-                rows.append(FileRow(
-                    file_id=uuid,
-                    filename=r.get("SeriesInstanceUID") or "",
-                    md5="",
-                    size="",
-                    state="released",
-                    meta={
-                        "collection_id": r.get("collection_id") or "",
-                        "PatientID": r.get("PatientID") or "",
-                        "StudyInstanceUID": r.get("StudyInstanceUID") or "",
-                        "SeriesInstanceUID": r.get("SeriesInstanceUID") or "",
-                        "crdc_series_uuid": uuid,
-                        "gcs_url": f"{IDC_GCS_BUCKET}{uuid}/",
-                    },
-                ))
-                if max_files is not None and len(rows) >= max_files:
-                    return rows
-            if not token or not batch:
-                break
+        for r in self._client.iter_instances(session, query["filters"]):
+            uuid = r.get("crdc_series_uuid")
+            if not uuid or uuid in seen:
+                continue
+            seen.add(uuid)
+            rows.append(FileRow(
+                file_id=uuid,
+                filename=r.get("SeriesInstanceUID") or "",
+                md5="",
+                size="",
+                state="released",
+                meta={
+                    "collection_id": r.get("collection_id") or "",
+                    "PatientID": r.get("PatientID") or "",
+                    "StudyInstanceUID": r.get("StudyInstanceUID") or "",
+                    "SeriesInstanceUID": r.get("SeriesInstanceUID") or "",
+                    "crdc_series_uuid": uuid,
+                    "gcs_url": f"{IDC_GCS_BUCKET}{uuid}/",
+                },
+            ))
+            if max_files is not None and len(rows) >= max_files:
+                return rows
         return rows
 
     def count(self, session, query) -> int:
         # Cheap preview: instance total (the built manifest is series-level; a series
         # count would require paging the whole collection).
-        manifest, _ = self._preview(session, query["filters"], page_size=1, next_page=None)
-        return int(manifest.get("totalFound") or 0)
+        return self._client.total_found(session, query["filters"])
 
     def fetch(self, session, query, *, max_files=None, total=None) -> list[FileRow]:
         return self._series(session, query, max_files=max_files)
@@ -149,7 +127,7 @@ class IDCManifestSource(BaseManifestSource):
     def provenance(self, query: dict) -> dict:
         return {
             "source": "idc",
-            "endpoint": IDC_API,
+            "endpoint": self._client.endpoint,
             "tool_version": version_string(),
             "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "query_filters": json.dumps(query, sort_keys=True, separators=(",", ":")),
