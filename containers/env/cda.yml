@@ -1,0 +1,7 @@
+name: base
+channels:
+  - conda-forge
+dependencies:
+  - pip
+  - pip:
+      - cdapython==2.1.0

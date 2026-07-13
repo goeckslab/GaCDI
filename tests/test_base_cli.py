@@ -4,7 +4,7 @@ import pytest
 
 from gacdi.base import BaseImporter, RunConfig
 from gacdi.cli import main
-from gacdi.errors import AuthError, InputError
+from gacdi.errors import AuthError, DependencyError, DownloadError, InputError
 from gacdi.model import DownloadResult, FileEntry
 
 
@@ -30,6 +30,74 @@ def test_run_enforces_max_files(tmp_path):
     )
     summary = DummyImporter().run(cfg)
     assert len(summary.ok) == 2
+    assert [result.status for result in summary.results[2:]] == ["excluded_file_limit"] * 3
+
+
+def test_run_records_byte_budget_exclusions(tmp_path):
+    cfg = RunConfig(
+        input_mode="accession",
+        output_dir=str(tmp_path / "out"),
+        summary=str(tmp_path / "s.tsv"),
+        transfer_report=str(tmp_path / "transfer.tsv"),
+        max_bytes=2,
+    )
+    summary = DummyImporter().run(cfg)
+    assert [result.status for result in summary.results] == [
+        "ok",
+        "ok",
+        "excluded_byte_limit",
+        "excluded_byte_limit",
+        "excluded_byte_limit",
+    ]
+    assert (tmp_path / "transfer.tsv").read_text().count("excluded_byte_limit") == 3
+
+
+def test_retries_are_additional_attempts(tmp_path):
+    class FlakyImporter(DummyImporter):
+        attempts = 0
+
+        def resolve(self, cfg, token):
+            return [FileEntry(file_id="one", filename="one.txt", source="dummy")]
+
+        def download(self, entry, dest_dir, cfg, token):
+            self.attempts += 1
+            if self.attempts < 3:
+                raise DownloadError("transient")
+            return DownloadResult(entry, "ok")
+
+    importer = FlakyImporter()
+    summary = importer.run(
+        RunConfig(
+            input_mode="accession",
+            output_dir=str(tmp_path / "out"),
+            summary=str(tmp_path / "s.tsv"),
+            retries=2,
+        )
+    )
+    assert importer.attempts == 3
+    assert summary.results[0].attempts == 3
+
+
+def test_nonretryable_dependency_failure_is_reported_per_asset(tmp_path):
+    class MissingDependencyImporter(DummyImporter):
+        def resolve(self, cfg, token):
+            return [FileEntry(file_id="one", filename="one.txt", source="dummy")]
+
+        def download(self, entry, dest_dir, cfg, token):
+            raise DependencyError("required-client is unavailable")
+
+    transfer = tmp_path / "transfer.tsv"
+    summary = MissingDependencyImporter().run(
+        RunConfig(
+            input_mode="accession",
+            output_dir=str(tmp_path / "out"),
+            summary=str(tmp_path / "summary.tsv"),
+            transfer_report=str(transfer),
+        )
+    )
+    assert summary.results[0].status == "failed"
+    assert summary.results[0].attempts == 1
+    assert "required-client is unavailable" in transfer.read_text()
 
 
 def test_run_dry_run_downloads_nothing(tmp_path):
@@ -66,6 +134,7 @@ def test_cli_gdc_dry_run(tmp_path):
         "gdc",
         "--input-mode", "manifest",
         "--manifest", str(man),
+        "--set", "legacy_access=open",
         "--output-dir", str(tmp_path / "out"),
         "--summary", str(summ),
         "--dry-run",

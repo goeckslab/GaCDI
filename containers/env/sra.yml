@@ -1,0 +1,6 @@
+name: base
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - sra-tools=3.1.1

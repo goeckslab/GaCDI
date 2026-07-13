@@ -1,0 +1,145 @@
+<tool id="gacdi_manifest_pdc" name="GaCDI Manifest Builder (PDC)" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>build a filtered PDC download manifest (DRS) and enriched metadata table</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code"><![CDATA[
+        gacdi-manifest pdc
+            #if str($core.pdc_study_id).strip() != ''
+                --pdc-study-id '$core.pdc_study_id'
+            #end if
+            #if str($core.disease_type).strip() != ''
+                --disease-type '$core.disease_type'
+            #end if
+            #if str($core.primary_site).strip() != ''
+                --primary-site '$core.primary_site'
+            #end if
+            #if str($core.analytical_fraction).strip() != ''
+                --analytical-fraction '$core.analytical_fraction'
+            #end if
+            #if str($core.data_category).strip() != ''
+                --data-category '$core.data_category'
+            #end if
+            #for $mf in $adv.metadata_filters
+                --metadata-filter 'column=${mf.column};op=${mf.op};values=${mf.values}'
+            #end for
+            #if $count_only
+                --count-only
+            #else
+                #if str($adv.max_files) != ''
+                    --max-files $adv.max_files
+                #end if
+            #end if
+            --manifest-out '$manifest'
+            --metadata-out '$metadata'
+            --report-out '$report'
+            --selection-manifest-out '$selection_manifest'
+            --selection-metadata-out '$selection_metadata'
+            --selection-provenance-out '$selection_provenance'
+    ]]></command>
+    <inputs>
+        <section name="core" title="What to download" expanded="true">
+            <param name="pdc_study_id" type="text" value="" label="PDC study id(s)"
+                   help="One or more PDC study ids (comma-separated), e.g. PDC000714. Leave blank to select studies by the filters below.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="disease_type" type="text" value="" label="Disease type"
+                   help="Keep only studies of this disease, e.g. Colon Adenocarcinoma. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="primary_site" type="text" value="" label="Primary site"
+                   help="Keep only studies from this anatomic site, e.g. Brain, Colon. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="analytical_fraction" type="text" value="" label="Analytical fraction"
+                   help="Proteomics fraction, e.g. Proteome, Phosphoproteome, Ubiquitylome. Comma-separate for several.">
+                <expand macro="safe_text"/>
+            </param>
+            <param name="data_category" type="text" value="" label="Data category"
+                   help="Keep only files in this category, e.g. 'Raw Mass Spectra' or 'Processed Mass Spectra'.">
+                <expand macro="safe_text"/>
+            </param>
+        </section>
+        <param name="count_only" type="boolean" checked="false" truevalue="true" falsevalue=""
+               label="Preview counts only (don't build the manifest yet)"
+               help="Reports how many files match so you can refine filters before building the full manifest."/>
+        <section name="adv" title="Advanced options" expanded="false">
+            <repeat name="metadata_filters" title="Filter the final table by metadata column" min="0"
+                    help="Applied AFTER the query, on the metadata columns this tool generated (headers in the metadata output — e.g. data_category, or a native column like pdc__analytical_fraction). Keeps only rows where a column is present or matches specific value(s). A file stays in the manifest if at least one of its rows passes.">
+                <param name="column" type="text" value="" label="Metadata column"
+                       help="Exact column header from the metadata output, e.g. disease_type, primary_site, pdc__analytical_fraction.">
+                    <expand macro="safe_text"/>
+                    <validator type="empty_field"/>
+                </param>
+                <param name="op" type="select" label="Condition" help="How to test each row's value.">
+                    <option value="present" selected="true">is present (non-blank)</option>
+                    <option value="blank">is blank (missing)</option>
+                    <option value="in">is one of (value list)</option>
+                    <option value="exclude">is not (value list)</option>
+                    <option value="contains">contains text</option>
+                </param>
+                <param name="values" type="text" value="" optional="true" label="Value(s)"
+                       help="Comma-separated. Required for 'is one of', 'is not', and 'contains'; leave blank for 'is present' / 'is blank'.">
+                    <expand macro="safe_text"/>
+                </param>
+            </repeat>
+            <param name="max_files" type="integer" value="" optional="true" min="1"
+                   label="Maximum number of files"
+                   help="Stop after this many files — handy for a quick test. Leave blank for all matches."/>
+        </section>
+    </inputs>
+    <outputs>
+        <data name="manifest" format="tabular" label="${tool.name} on ${on_string}: PDC DRS manifest"/>
+        <data name="metadata" format="tabular" label="${tool.name} on ${on_string}: metadata"/>
+        <data name="report" format="tabular" label="${tool.name} on ${on_string}: report"/>
+        <data name="selection_manifest" format="tabular" label="${tool.name} on ${on_string}: canonical selection manifest"/>
+        <data name="selection_metadata" format="tabular" label="${tool.name} on ${on_string}: canonical selection metadata"/>
+        <data name="selection_provenance" format="json" label="${tool.name} on ${on_string}: selection provenance"/>
+    </outputs>
+    <tests>
+        <!-- Live preview: a light PDC count call; run with `planemo test`. -->
+        <test>
+            <section name="core">
+                <param name="pdc_study_id" value="PDC000714"/>
+                <param name="data_category" value="Raw Mass Spectra"/>
+            </section>
+            <param name="count_only" value="true"/>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="files_matching_filters"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+**GaCDI Manifest Builder (PDC)**
+
+Builds a **targeted** download manifest from the NCI `Proteomic Data Commons
+<https://proteomic.datacommons.cancer.gov/>`_ (PDC), a CRDC node, so you fetch exactly
+the proteomics files you want. It produces three compatibility outputs plus the
+canonical three-file selection bundle:
+
+1. **PDC DRS manifest** — the multi-source download contract (``source``, ``file_id``,
+   ``drs_uri``, ``download_method``, ``checksum``, ``size``, ``access`` …). Every row is a
+   GA4GH **DRS** URI (``drs://dg.4DFC:<id>``) resolved by the CRDC DRS server, so the
+   downstream downloader fetches by DRS.
+2. **metadata** — a research table: a harmonized core (``disease_type``, ``primary_site``,
+   ``project`` …) plus every native PDC field preserved as ``pdc__`` prefixed columns.
+3. **report** — match counts, provenance and (in preview mode) the match count.
+4. **canonical selection manifest / metadata / provenance** — the validated,
+   hash-bound source-neutral bundle reserved for the future PDC DRS downloader.
+
+**Getting started**
+
+Give a **PDC study id** (e.g. ``PDC000714``) or pick studies by *Disease type* / *Primary
+site* / *Analytical fraction*, and run with *Preview counts only* first. When the count
+looks right, turn preview off to build the manifest.
+
+**Two kinds of filter.** The *What to download* fields filter which PDC studies/files the
+query returns. The Advanced *Filter the final table by metadata column* trims the final
+manifest to rows whose generated columns match (e.g. keep only a given ``data_category``),
+after the query runs.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

@@ -82,8 +82,13 @@ def join(
     level: str = "sample",
     trim_vial: bool = True,
     annotation_columns: list[str] | None = None,
+    source: str = "",
 ) -> tuple[list[dict], JoinReport]:
-    """Left-join annotations onto file rows; return merged rows + a report."""
+    """Left-join annotations onto file rows; return merged rows + a report.
+
+    When *source* is given, every native field the source returned is passed
+    through as a ``<source>__<field>`` column (plan §4.1) so nothing is dropped.
+    """
     index, collisions = _index_annotations(annotations, level, trim_vial)
     ann_cols = annotation_columns or sorted({c for a in annotations.values() for c in a})
     report = JoinReport(total_files=len(file_rows), collisions=collisions)
@@ -106,6 +111,8 @@ def join(
             "workflow_type": field_value(fr.meta, "analysis.workflow_type") or "",
             "platform": field_value(fr.meta, "platform") or "",
         }
+        # Source-native passthrough: preserve every raw field, prefixed by source.
+        native_cols = {f"{source}__{k}": v for k, v in fr.meta.items()} if source else {}
         sample_records = enumerate_samples(fr.meta)
         if len(sample_records) > 1:
             report.multi_sample_files += 1
@@ -119,7 +126,7 @@ def join(
                 used_keys.add(key)
             else:
                 report.unmatched_files.append(fr.file_id)
-            row = {**file_cols, **srec, "matched": "yes" if attrs is not None else "no"}
+            row = {**native_cols, **file_cols, **srec, "matched": "yes" if attrs is not None else "no"}
             for col in ann_cols:
                 row[col] = (attrs or {}).get(col, "")
             merged.append(row)

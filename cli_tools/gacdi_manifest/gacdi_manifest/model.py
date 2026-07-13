@@ -277,9 +277,9 @@ MANIFEST_SUPERSET: tuple[str, ...] = (
     "sample_id",        # link key to metadata (may be empty)
 )
 
-DOWNLOAD_METHODS = frozenset(
-    {"drs", "https", "ftp", "gcs", "sra-toolkit", "synapse", "nbia"}
-)
+DOWNLOAD_METHODS = ("drs", "https", "ftp", "gcs", "sra-toolkit", "synapse", "nbia")
+CHECKSUM_TYPES = ("md5", "sha256", "etag", "")
+ACCESS_LEVELS = ("open", "controlled")
 ACCESS_VALUES = frozenset({"open", "controlled"})
 
 # Per-source physical manifest column order (the "dialect"). GDC stays lean and
@@ -302,30 +302,6 @@ HARMONIZED_CORE_COLUMNS: list[str] = [
 def native_column(source: str, field_name: str) -> str:
     """Column name for a source-native passthrough field, e.g. ``gdc__platform``."""
     return f"{source}__{field_name}"
-
-
-@dataclass
-class ManifestRow:
-    """A downloadable file in source-agnostic (superset) terms.
-
-    Importers build these; the writer projects them onto the source's manifest
-    dialect (:data:`MANIFEST_DIALECTS`). Only ``source``/``file_id``/``filename``
-    are always required; the rest are populated when the source provides them.
-    """
-
-    source: str
-    file_id: str
-    filename: str
-    download_method: str = ""
-    drs_uri: str = ""
-    access_url: str = ""
-    checksum: str = ""
-    checksum_type: str = ""
-    size: str = ""
-    file_format: str = ""
-    access: str = ""
-    case_id: str = ""
-    sample_id: str = ""
 
 
 @dataclass
@@ -387,3 +363,29 @@ class FileRow:
     @property
     def galaxy_ext(self) -> str:
         return galaxy_ext(self.filename, self.data_format)
+
+
+@dataclass
+class ManifestRow:
+    """The multi-source download-contract row (plan §4.1) — one row per file.
+
+    This is the schema **new** (CRDC/imaging/NCBI) sources emit: DRS-aware, with a
+    ``download_method`` + (``drs_uri`` | ``access_url``) pair so a single downstream
+    tool can handle every source. GDC intentionally keeps its strict
+    ``id/filename/md5/size/state`` manifest for ``gdc-client`` compatibility (see
+    :data:`gacdi_manifest.io.MANIFEST_COLUMNS`) rather than this richer schema.
+    """
+
+    source: str = ""
+    file_id: str = ""
+    filename: str = ""
+    drs_uri: str = ""
+    access_url: str = ""       # fallback locator: FTP/GCS/SRA accession/Synapse id/NBIA ref
+    download_method: str = ""  # one of DOWNLOAD_METHODS
+    checksum: str = ""
+    checksum_type: str = ""    # one of CHECKSUM_TYPES
+    size: str = ""             # bytes; may be empty
+    file_format: str = ""
+    access: str = ""           # open | controlled
+    case_id: str = ""          # linking key to metadata
+    sample_id: str = ""        # linking key to metadata (may be empty for study-level items)

@@ -7,7 +7,7 @@ name = "gacdi-manifest"
 dynamic = ["version"]
 description = "GaCDI Manifest Builder — filter-driven manifest + enriched metadata generation for NIH/NCI cancer data repositories."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "GaCDI contributors" }]
 keywords = ["galaxy", "cancer", "gdc", "manifest", "cbioportal", "tcga", "nci"]
@@ -16,7 +16,7 @@ dependencies = [
     # Shared foundation (HTTP session, GDC manifest parser, history summary
     # contract). In this monorepo install the root `gacdi` package editable
     # alongside this one (see README / CI).
-    "gacdi>=0.1.0",
+    "gacdi>=0.1.1",
 ]
 
 [project.optional-dependencies]

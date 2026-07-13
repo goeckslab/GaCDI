@@ -32,6 +32,7 @@ MANIFEST
 #   Usually these files are written by a python script from a template
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
+!containers/Dockerfile.manifest
 *.spec
 
 # Installer logs
@@ -156,6 +157,10 @@ activemq-data/
 env/
 venv/
 ENV/
+# The repository's container environment specifications live in a directory
+# whose name collides case-insensitively with the generic virtualenv rule above.
+!containers/env/
+!containers/env/*.yml
 env.bak/
 venv.bak/
 

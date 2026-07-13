@@ -7,7 +7,7 @@ the ``gacdi`` CLI and, in turn, as a thin Galaxy tool wrapper.
 
 import os
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Build identifier baked into the container image at build time (e.g. the git
 # commit SHA). Lets you confirm the exact code a run used, even when the version

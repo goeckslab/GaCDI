@@ -16,17 +16,53 @@ on:
       - "gacdi/**"
       - "cli_tools/gacdi_manifest/**"
       - "containers/**"
+      - "pyproject.toml"
+      - ".dockerignore"
+      - ".github/workflows/containers.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: quay.io
-  # Must match the <container> namespace in the tool macros (tools/macros.xml and
-  # tools/manifest_gdc/macros.xml).
+  # Must match the <container> namespace in tools/macros.xml and every
+  # tools/manifest_*/macros.xml file.
   ORG: goeckslab
   IMAGE: gacdi-manifest
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      downloader: ${{ steps.filter.outputs.downloader }}
+      manifest: ${{ steps.filter.outputs.manifest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          filters: |
+            downloader:
+              - 'gacdi/**'
+              - 'pyproject.toml'
+              - 'containers/Dockerfile.base'
+              - 'containers/Dockerfile.cda'
+              - 'containers/Dockerfile.gdc'
+              - 'containers/Dockerfile.geo'
+              - 'containers/Dockerfile.sra'
+              - 'containers/env/**'
+              - '.dockerignore'
+              - '.github/workflows/containers.yml'
+            manifest:
+              - 'gacdi/**'
+              - 'pyproject.toml'
+              - 'cli_tools/gacdi_manifest/**'
+              - 'containers/Dockerfile.manifest'
+              - '.dockerignore'
+              - '.github/workflows/containers.yml'
+
   base:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.downloader == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,8 +98,15 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-base:${{ steps.version.outputs.version }}
 
+      - name: Smoke test base CLI
+        run: >-
+          docker run --rm
+          ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-base:${{ steps.version.outputs.version }}
+          gacdi --version
+
   tools:
-    needs: base
+    needs: [changes, base]
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.downloader == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -104,7 +147,15 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-${{ matrix.tool }}:${{ steps.version.outputs.version }}
 
+      - name: Smoke test ${{ matrix.tool }} CLI
+        run: >-
+          docker run --rm
+          ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-${{ matrix.tool }}:${{ steps.version.outputs.version }}
+          gacdi ${{ matrix.tool }} --help
+
   manifest:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.manifest == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -135,9 +186,15 @@ jobs:
       - name: Build & push manifest builder
         uses: docker/build-push-action@v6
         with:
-          context: cli_tools/gacdi_manifest
-          file: cli_tools/gacdi_manifest/Dockerfile
+          context: .
+          file: containers/Dockerfile.manifest
           push: true
           build-args: |
             GACDI_BUILD=${{ github.sha }}
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+
+      - name: Smoke test manifest CLI
+        run: >-
+          docker run --rm
+          ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+          gacdi-manifest --version

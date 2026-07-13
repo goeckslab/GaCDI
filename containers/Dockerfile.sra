@@ -1,7 +1,7 @@
 # GaCDI SRA runtime: base image + sra-tools.
 #   docker build -f containers/Dockerfile.sra \
 #     --build-arg BASE_IMAGE=gacdi-base:dev -t gacdi-sra:dev .
-ARG BASE_IMAGE=quay.io/paulocilasjr/gacdi-base:0.1.0
+ARG BASE_IMAGE=quay.io/goeckslab/gacdi-base:0.1.1
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="gacdi-sra" \

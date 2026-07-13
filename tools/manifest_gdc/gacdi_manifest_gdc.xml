@@ -18,6 +18,15 @@
             #if str($core.access) != ''
                 --access '$core.access'
             #end if
+            #if $core.file_id_list
+                --file-id-list '$core.file_id_list'
+            #end if
+            #if $core.case_list
+                --case-list '$core.case_list'
+            #end if
+            #if $core.sample_list
+                --sample-list '$core.sample_list'
+            #end if
             #if str($adv.primary_site).strip() != ''
                 --primary-site '$adv.primary_site'
             #end if
@@ -74,6 +83,9 @@
             --manifest-out '$manifest'
             --metadata-out '$metadata'
             --report-out '$report'
+            --selection-manifest-out '$selection_manifest'
+            --selection-metadata-out '$selection_metadata'
+            --selection-provenance-out '$selection_provenance'
     ]]></command>
     <inputs>
         <section name="core" title="What to download" expanded="true">
@@ -103,6 +115,15 @@
                 <option value="open">open</option>
                 <option value="controlled">controlled</option>
             </param>
+            <param name="file_id_list" type="data" format="txt,tabular" optional="true"
+                   label="GDC file IDs"
+                   help="Optional allowlist with one GDC file UUID per line. This is combined with the guided filters."/>
+            <param name="case_list" type="data" format="txt,tabular" optional="true"
+                   label="Case submitter barcodes"
+                   help="Optional allowlist with one GDC case submitter barcode per line (for example, a TCGA participant barcode). Native case UUIDs are not accepted by this field."/>
+            <param name="sample_list" type="data" format="txt,tabular" optional="true"
+                   label="Sample submitter barcodes"
+                   help="Optional allowlist with one GDC sample submitter barcode per line. Native sample UUIDs are not accepted by this field. This is the preferred sample-level selection input."/>
         </section>
         <section name="gdc_filter" title="Filter by GDC field (part of the GDC query)" expanded="false">
             <repeat name="extra_filters" title="Custom GDC field filter" min="0"
@@ -263,6 +284,9 @@
         <data name="manifest" format="txt" label="${tool.name} on ${on_string}: GDC manifest"/>
         <data name="metadata" format="tabular" label="${tool.name} on ${on_string}: metadata"/>
         <data name="report" format="tabular" label="${tool.name} on ${on_string}: report"/>
+        <data name="selection_manifest" format="tabular" label="${tool.name} on ${on_string}: canonical selection manifest"/>
+        <data name="selection_metadata" format="tabular" label="${tool.name} on ${on_string}: canonical selection metadata"/>
+        <data name="selection_provenance" format="json" label="${tool.name} on ${on_string}: selection provenance"/>
     </outputs>
     <tests>
         <!-- Live preview: light GDC count/facet calls; run with `planemo test`. -->
@@ -282,9 +306,11 @@
     <help><![CDATA[
 **GaCDI Manifest Builder (GDC)**
 
-Builds a **targeted** download manifest from the NCI `Genomic Data Commons
+Builds a **targeted selection bundle** from the NCI `Genomic Data Commons
 <https://gdc.cancer.gov/>`_ by filtering, so you fetch exactly the files you want
-instead of a whole dataset. It produces three outputs:
+instead of a whole dataset. Guided filters can be combined with uploaded file,
+case, or sample ID allowlists. It produces compatibility outputs plus the canonical
+three-file bundle used by the downloader:
 
 1. **GDC manifest** — strict ``id / filename / md5 / size / state`` format, ready
    to feed straight into the **GaCDI GDC** importer or ``gdc-client``.
@@ -298,6 +324,13 @@ instead of a whole dataset. It produces three outputs:
 3. **report** — match/precision QC: counts, unmatched files, unused annotations
    and colliding keys. In *Preview counts only* mode this holds the match count and
    a facet breakdown so you can refine filters cheaply before building.
+4. **canonical selection manifest** — one validated row per remote retrieval asset.
+5. **canonical selection metadata** — case/sample associations for every selected asset.
+6. **selection provenance** — the normalized query, counts, warnings, and SHA-256 hashes
+   that bind the canonical manifest and metadata into one reproducible bundle.
+
+Connect the three canonical outputs to **GaCDI GDC → Canonical selection bundle**.
+The original GDC manifest output remains available for existing saved workflows.
 
 **Getting started**
 

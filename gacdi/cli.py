@@ -22,18 +22,66 @@ log = logging.getLogger("gacdi")
 def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--input-mode",
-        choices=("manifest", "accession", "query"),
+        choices=("manifest", "bundle", "accession", "query"),
         default="manifest",
         help="How the selection is provided.",
     )
     src = parser.add_argument_group("selection source")
     src.add_argument("--manifest", help="Path to a manifest file (manifest mode).")
+    src.add_argument(
+        "--metadata",
+        help="Path to canonical selection metadata (bundle mode).",
+    )
+    src.add_argument(
+        "--provenance",
+        help="Path to canonical selection provenance JSON (bundle mode).",
+    )
     src.add_argument("--accessions", help="Comma/space/newline separated accessions (accession mode).")
     src.add_argument("--query-json", dest="query_json", help="Path to a JSON query document (query mode).")
 
     out = parser.add_argument_group("outputs")
     out.add_argument("--output-dir", default="downloads", help="Directory for downloaded files (collection).")
     out.add_argument("--summary", default="summary.tsv", help="Path for the summary TSV.")
+    out.add_argument(
+        "--transfer-report",
+        dest="transfer_report",
+        help="Optional path for one-row-per-asset transfer accounting.",
+    )
+    out.add_argument(
+        "--dataset-map",
+        dest="dataset_map",
+        help="Optional path for one-row-per-produced-dataset mapping.",
+    )
+    out.add_argument(
+        "--galaxy-metadata",
+        dest="galaxy_metadata",
+        help="Optional path for Galaxy tool-provided collection metadata (galaxy.json).",
+    )
+    out.add_argument(
+        "--imported-metadata",
+        dest="imported_metadata",
+        help="Optional path for selection metadata expanded to produced collection elements.",
+    )
+    out.add_argument(
+        "--import-provenance",
+        dest="import_provenance",
+        help="Optional path for downloader execution provenance JSON.",
+    )
+    out.add_argument(
+        "--retry-manifest",
+        dest="retry_manifest",
+        help="Optional path for the failed-asset member of a complete retry bundle.",
+    )
+    out.add_argument(
+        "--retry-metadata",
+        dest="retry_metadata",
+        help="Optional retry association metadata path (defaults beside --retry-manifest).",
+    )
+    out.add_argument(
+        "--retry-provenance",
+        dest="retry_provenance",
+        help="Optional retry provenance path (defaults beside --retry-manifest).",
+    )
 
     ctl = parser.add_argument_group("behaviour")
     ctl.add_argument("--token", help="Controlled-access token file (where supported).")
@@ -87,10 +135,20 @@ def _config_from_args(args: argparse.Namespace) -> RunConfig:
         options=_parse_options(args.options_raw),
         input_mode=args.input_mode,
         manifest=args.manifest,
+        metadata=args.metadata,
+        provenance=args.provenance,
         accessions=args.accessions,
         query_json=args.query_json,
         output_dir=args.output_dir,
         summary=args.summary,
+        transfer_report=args.transfer_report,
+        dataset_map=args.dataset_map,
+        galaxy_metadata=args.galaxy_metadata,
+        imported_metadata=args.imported_metadata,
+        import_provenance=args.import_provenance,
+        retry_manifest=args.retry_manifest,
+        retry_metadata=args.retry_metadata,
+        retry_provenance=args.retry_provenance,
         token=args.token,
         assign_ext=args.assign_ext,
         max_files=args.max_files,

@@ -1,19 +1,118 @@
 from pathlib import Path
+import hashlib
 
 import pytest
 import requests
 
 from gacdi.base import RunConfig
-from gacdi.errors import DownloadError, InputError
+from gacdi.errors import ChecksumError, DownloadError, InputError
 from gacdi.importers.gdc import API_FILES_ENDPOINT, GDCImporter
-from gacdi.model import FileEntry
+from gacdi.model import DownloadResult, FileEntry
 
 
 def test_resolve_manifest(tmp_path):
     m = tmp_path / "m.txt"
     m.write_text("id\tfilename\tmd5\tsize\tstate\nID1\ta.bam\tx\t10\treleased\n")
-    entries = GDCImporter().resolve(RunConfig(input_mode="manifest", manifest=str(m)), None)
+    entries = GDCImporter().resolve(
+        RunConfig(input_mode="manifest", manifest=str(m), options={"legacy_access": "open"}),
+        None,
+    )
     assert entries[0].file_id == "ID1"
+    assert entries[0].extra["access"] == "open"
+
+
+def test_resolve_manifest_requires_access_declaration_and_token(tmp_path):
+    manifest = tmp_path / "m.txt"
+    manifest.write_text("id\tfilename\tmd5\tsize\tstate\nID1\ta.bam\tx\t10\treleased\n")
+    with pytest.raises(InputError, match="explicit access declaration"):
+        GDCImporter().resolve(RunConfig(input_mode="manifest", manifest=str(manifest)), None)
+    cfg = RunConfig(
+        input_mode="manifest",
+        manifest=str(manifest),
+        options={"legacy_access": "controlled"},
+    )
+    entries = GDCImporter().resolve(cfg, None)
+    assert "provide a GDC token" in entries[0].extra["preflight_error"]
+
+
+def test_legacy_controlled_manifest_preflight_blocks_without_token(tmp_path):
+    manifest = tmp_path / "m.txt"
+    manifest.write_text("id\tfilename\tmd5\tsize\tstate\nID1\ta.bam\tx\t10\treleased\n")
+    summary = GDCImporter().run(
+        RunConfig(
+            input_mode="manifest",
+            manifest=str(manifest),
+            options={"legacy_access": "controlled"},
+            output_dir=str(tmp_path / "downloads"),
+            summary=str(tmp_path / "summary.tsv"),
+            retries=2,
+        )
+    )
+    assert summary.results[0].status == "failed"
+    assert summary.results[0].attempts == 0
+    assert "controlled" in summary.results[0].message
+
+
+def test_legacy_controlled_manifest_token_is_ephemeral(tmp_path, monkeypatch):
+    manifest = tmp_path / "m.txt"
+    manifest.write_text("id\tfilename\tmd5\tsize\tstate\nID1\ta.bam\tx\t10\treleased\n")
+    token = tmp_path / "token.txt"
+    token.write_text("secret")
+    observed = []
+
+    def fake_download(self, entry, dest_dir, cfg, token_file):
+        observed.append((str(token_file), Path(str(token_file)).read_text()))
+        return DownloadResult(entry, "ok", bytes=0)
+
+    monkeypatch.setattr(GDCImporter, "download", fake_download)
+    GDCImporter().run(
+        RunConfig(
+            input_mode="manifest",
+            manifest=str(manifest),
+            options={"legacy_access": "controlled"},
+            token=str(token),
+            output_dir=str(tmp_path / "downloads"),
+            summary=str(tmp_path / "summary.tsv"),
+        )
+    )
+    assert observed and observed[0][1] == "secret"
+    assert not Path(observed[0][0]).exists()
+
+
+def test_resolve_manifest_rejects_path_like_asset_id(tmp_path):
+    manifest = tmp_path / "m.txt"
+    manifest.write_text(
+        "id\tfilename\tmd5\tsize\tstate\n../escape\ta.bam\tx\t10\treleased\n"
+    )
+    cfg = RunConfig(
+        input_mode="manifest",
+        manifest=str(manifest),
+        options={"legacy_access": "open"},
+    )
+    with pytest.raises(InputError, match="Unsafe GDC asset id"):
+        GDCImporter().resolve(cfg, None)
+
+
+def test_download_rejects_unsafe_id_before_client_or_cleanup(tmp_path, monkeypatch):
+    sentinel = tmp_path / "sentinel.txt"
+    sentinel.write_text("keep")
+    called = False
+
+    def fake_require(_):
+        nonlocal called
+        called = True
+        return "gdc-client"
+
+    monkeypatch.setattr("gacdi.importers.gdc.require", fake_require)
+    with pytest.raises(InputError, match="Unsafe GDC asset id"):
+        GDCImporter().download(
+            FileEntry(file_id="..", filename="a.bam"),
+            str(tmp_path / "downloads"),
+            RunConfig(),
+            None,
+        )
+    assert called is False
+    assert sentinel.read_text() == "keep"
 
 
 def test_resolve_manifest_requires_path():
@@ -78,11 +177,12 @@ def test_download_flattens_and_cleans(tmp_path, monkeypatch):
 
     monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
     entry = FileEntry(file_id="ID1", filename="a.bam", source="gdc")
-    res = GDCImporter().download(entry, str(tmp_path), RunConfig(), None)
+    res = GDCImporter().download(entry, str(tmp_path), RunConfig(assign_ext="cram"), None)
     assert res.status == "ok"
     assert (tmp_path / "a.bam").exists()
     assert not (tmp_path / "ID1").exists()
     assert res.bytes == len(b"payload")
+    assert res.produced[0].galaxy_ext == "cram"
 
 
 def test_download_no_files_fails(tmp_path, monkeypatch):
@@ -90,3 +190,56 @@ def test_download_no_files_fails(tmp_path, monkeypatch):
     monkeypatch.setattr("gacdi.importers.gdc.run", lambda cmd, **kw: None)
     with pytest.raises(DownloadError):
         GDCImporter().download(FileEntry(file_id="ID1", filename="a.bam"), str(tmp_path), RunConfig(), None)
+
+
+def test_bundle_download_rejects_source_size_mismatch(tmp_path, monkeypatch):
+    monkeypatch.setattr("gacdi.importers.gdc.require", lambda _: "gdc-client")
+
+    def fake_run(cmd, **kwargs):
+        subdir = tmp_path / "ID1"
+        subdir.mkdir()
+        (subdir / "a.bam").write_bytes(b"short")
+
+    monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
+    entry = FileEntry(file_id="ID1", filename="a.bam", size=100, source="gdc")
+    with pytest.raises(ChecksumError, match="Size mismatch"):
+        GDCImporter().download(
+            entry,
+            str(tmp_path),
+            RunConfig(input_mode="bundle"),
+            None,
+        )
+    assert not (tmp_path / "a.bam").exists()
+
+
+def test_bundle_download_verifies_sha256_source_checksum(tmp_path, monkeypatch):
+    payload = b"source bytes"
+    monkeypatch.setattr("gacdi.importers.gdc.require", lambda _: "gdc-client")
+
+    def fake_run(cmd, **kwargs):
+        subdir = tmp_path / "ID1"
+        subdir.mkdir()
+        (subdir / "a.dat").write_bytes(payload)
+
+    monkeypatch.setattr("gacdi.importers.gdc.run", fake_run)
+    expected = hashlib.sha256(payload).hexdigest()
+    entry = FileEntry(
+        file_id="ID1",
+        filename="a.dat",
+        size=len(payload),
+        source="gdc",
+        extra={
+            "source_checksum_type": "sha256",
+            "source_checksum": expected,
+            "galaxy_ext_hint": "data",
+        },
+    )
+    result = GDCImporter().download(
+        entry,
+        str(tmp_path),
+        RunConfig(input_mode="bundle"),
+        None,
+    )
+    assert result.checksum_verified is True
+    assert result.observed_checksum_type == "sha256"
+    assert result.observed_checksum == expected

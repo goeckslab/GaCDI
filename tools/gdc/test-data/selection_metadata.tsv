@@ -1,0 +1,2 @@
+metadata_row_id	source	asset_id	relationship	case_id	sample_id	project	sample_type	annotation_state
+md_918977371bba97661b6f267f	gdc	0001-aaaa-bbbb-cccc	sample	CASE-001	SAMPLE-001	TCGA-TEST	Primary Tumor	not_requested

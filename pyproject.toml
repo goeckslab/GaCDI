@@ -7,7 +7,7 @@ name = "gacdi"
 dynamic = ["version"]
 description = "Galaxy Cancer Data Importers — import NIH/NCI cancer datasets into Galaxy histories."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "GaCDI contributors" }]
 keywords = ["galaxy", "cancer", "genomics", "gdc", "geo", "sra", "nih", "nci"]
