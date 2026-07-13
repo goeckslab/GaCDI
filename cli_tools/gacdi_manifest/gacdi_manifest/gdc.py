@@ -44,7 +44,11 @@ FIELDS = [
     "cases.primary_site",
     "cases.disease_type",
     # GDC-native clinical (demographic + diagnosis) → harmonized metadata core.
-    "cases.demographic.gender",
+    # GDC renamed the demographic sex field: the old `gender` was dropped from the
+    # schema and replaced by `sex_at_birth`. Requesting `gender` yields an all-empty
+    # column that GDC prunes from the TSV, so the harmonized `gender` output stays
+    # blank — read `sex_at_birth` instead.
+    "cases.demographic.sex_at_birth",
     "cases.demographic.race",
     "cases.demographic.ethnicity",
     "cases.demographic.vital_status",
