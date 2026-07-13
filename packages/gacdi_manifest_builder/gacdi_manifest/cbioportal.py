@@ -1,16 +1,14 @@
-"""cBioPortal client: list clinical attributes and fetch per-sample values.
+"""cBioPortal enrichment orchestration: list attributes and merge clinical values.
+
+The raw HTTP calls now live in :class:`gacdi_manifest.clients.cbioportal.CBioPortalClient`;
+this module owns the enrichment/join orchestration the plan keeps *outside* the
+client: fetching SAMPLE- and PATIENT-level clinical data and merging the
+patient-level values onto every sample of that patient, plus attribute-column
+selection.
 
 Attribute ids (e.g. ``SUBTYPE`` for PAM50, ``ER_STATUS_BY_IHC``) are
 study-specific, so we do not hard-map them: the caller supplies the study id and
 an optional attribute list (or ``all``). Sample ids look like ``TCGA-XX-XXXX-01``.
-
-Clinical attributes live at two levels in cBioPortal:
-
-- SAMPLE level (e.g. ANEUPLOIDY_SCORE, CANCER_TYPE, MSI scores), and
-- PATIENT level (e.g. SUBTYPE/PAM50, ER_STATUS_BY_IHC, PR_STATUS_BY_IHC, HER2).
-
-We fetch **both** and merge the patient-level values onto every sample of that
-patient, so subtype/receptor-status columns are included.
 """
 
 from __future__ import annotations
@@ -19,28 +17,21 @@ import logging
 
 import requests
 
-from .errors import ApiError
+from .clients.cbioportal import DEFAULT_BASE, CBioPortalClient
 
 log = logging.getLogger("gacdi_manifest.cbioportal")
 
-DEFAULT_BASE = "https://www.cbioportal.org/api"
 
-
-def list_attributes(session: requests.Session, study_id: str, *, base: str = DEFAULT_BASE) -> list[dict]:
+def list_attributes(
+    session: requests.Session,
+    study_id: str,
+    *,
+    base: str = DEFAULT_BASE,
+    client: CBioPortalClient | None = None,
+) -> list[dict]:
     """Return the clinical attributes defined for *study_id*."""
-    url = f"{base.rstrip('/')}/studies/{study_id}/clinical-attributes"
-    resp = session.get(url, timeout=60)
-    if resp.status_code >= 400:
-        raise ApiError(f"cBioPortal HTTP {resp.status_code} for {url}: {resp.text[:200]}")
-    return resp.json()
-
-
-def _get_clinical(session: requests.Session, study_id: str, kind: str, base: str) -> list[dict]:
-    url = f"{base.rstrip('/')}/studies/{study_id}/clinical-data"
-    resp = session.get(url, params={"clinicalDataType": kind, "projection": "SUMMARY"}, timeout=120)
-    if resp.status_code >= 400:
-        raise ApiError(f"cBioPortal HTTP {resp.status_code} for {url}: {resp.text[:200]}")
-    return resp.json()
+    client = client or CBioPortalClient(base=base)
+    return client.list_attributes(session, study_id)
 
 
 def _derive_patient(sample_id: str) -> str:
@@ -54,6 +45,7 @@ def fetch_clinical(
     *,
     attribute_ids: list[str] | None = None,
     base: str = DEFAULT_BASE,
+    client: CBioPortalClient | None = None,
 ) -> tuple[dict[str, dict], list[str]]:
     """Return ``{sample_id: {attr: value}}`` and the ordered attribute columns.
 
@@ -61,8 +53,9 @@ def fetch_clinical(
     onto each of that patient's samples. If *attribute_ids* is given, only those
     attributes are kept (order preserved).
     """
-    sample_records = _get_clinical(session, study_id, "SAMPLE", base)
-    patient_records = _get_clinical(session, study_id, "PATIENT", base)
+    client = client or CBioPortalClient(base=base)
+    sample_records = client.clinical_data(session, study_id, "SAMPLE")
+    patient_records = client.clinical_data(session, study_id, "PATIENT")
 
     by_sample: dict[str, dict] = {}
     sample_patient: dict[str, str] = {}
@@ -111,3 +104,6 @@ def fetch_clinical(
         len(cols),
     )
     return merged, cols
+
+
+__all__ = ["DEFAULT_BASE", "CBioPortalClient", "list_attributes", "fetch_clinical"]
