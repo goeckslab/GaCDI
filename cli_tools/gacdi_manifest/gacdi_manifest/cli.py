@@ -19,7 +19,7 @@ from .errors import InputError, ManifestError
 from .importer import BuildImporter
 from .join import join
 from .net import build_session
-from .registry import REGISTRY, get_importer
+from .registry import REGISTRY, get_importer, get_source
 
 log = logging.getLogger("gacdi_manifest")
 
@@ -78,11 +78,17 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="database", required=True, metavar="DATABASE")
 
     # Subparsers are built by iterating the registry: each source adds its own
-    # query flags, then the shared flags are appended.
+    # query flags, then the shared flags are appended. The source is imported
+    # lazily here; if one source is unavailable it is still registered (with the
+    # shared flags) so the other subcommands remain usable, and the import error
+    # surfaces only when that subcommand is actually run.
     for name in sorted(REGISTRY):
-        importer = get_importer(name)
-        p = sub.add_parser(importer.name, help=importer.help)
-        importer.add_arguments(p)
+        spec = REGISTRY[name]
+        p = sub.add_parser(name, help=spec.help)
+        try:
+            get_source(name).add_arguments(p)
+        except Exception:  # noqa: BLE001 - defer an unavailable source to dispatch
+            pass
         _add_common_arguments(p)
     return parser
 

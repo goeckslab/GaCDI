@@ -87,16 +87,15 @@ def test_registry_exposes_the_expected_sources():
     assert set(REGISTRY) == {"gdc", "pdc", "idc"}
 
 
-def test_registry_names_are_unique_and_match_class_name():
+def test_registry_names_are_unique_and_match_loaded_source():
     from gacdi_manifest.importer import BuildImporter
     from gacdi_manifest.registry import REGISTRY, get_importer
 
-    for name, cls in REGISTRY.items():
+    for name in REGISTRY:
         assert name and isinstance(name, str)
-        assert issubclass(cls, BuildImporter)
-        assert cls.name == name
         instance = get_importer(name)
         assert isinstance(instance, BuildImporter)
+        assert instance.name == name
 
 
 def test_get_importer_rejects_unknown_source():
