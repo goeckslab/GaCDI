@@ -42,6 +42,11 @@ def _dataset_basename(dataset: str) -> str:
 
 
 class XenaDownloadSource(BaseDownloadSource):
+    # Xena retrieval is a straight HTTP download: this source only builds
+    # candidate dataset URLs and composes the shared ``stream_download`` primitive
+    # from :mod:`gacdi.net`. It deliberately has no dedicated transport client —
+    # one would exist solely for symmetry and add no value (see the refactor plan,
+    # section 6.2).
     name = "xena"
     supports_controlled = False
     supported_modes = ("accession", "query")
