@@ -3,24 +3,16 @@
 Importers raise these so the CLI can translate them into clean, user-facing
 stderr messages and stable exit codes instead of leaking tracebacks into Galaxy
 job logs.
+
+The shared root :class:`GacdiError` and the contract/input :class:`InputError`
+now live in :mod:`gacdi_core.errors` (both tools use them); they are re-exported
+here so ``from gacdi.errors import GacdiError, InputError`` keeps working. The
+download/auth/dependency errors below are downloader-specific and stay here.
 """
 
 from __future__ import annotations
 
-
-class GacdiError(Exception):
-    """Base class for all expected GaCDI failures.
-
-    ``exit_code`` is used by the CLI as the process return code.
-    """
-
-    exit_code = 1
-
-
-class InputError(GacdiError):
-    """The user-supplied inputs are missing, malformed, or contradictory."""
-
-    exit_code = 2
+from gacdi_core.errors import GacdiError, InputError
 
 
 class AuthError(GacdiError):
@@ -45,3 +37,13 @@ class DependencyError(GacdiError):
     """A required external binary (e.g. gdc-client, prefetch) is unavailable."""
 
     exit_code = 6
+
+
+__all__ = [
+    "GacdiError",
+    "InputError",
+    "AuthError",
+    "DownloadError",
+    "ChecksumError",
+    "DependencyError",
+]

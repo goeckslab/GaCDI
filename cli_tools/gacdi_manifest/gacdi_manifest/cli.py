@@ -12,7 +12,7 @@ import logging
 import sys
 from collections import Counter
 
-from gacdi.errors import InputError as ContractInputError
+from gacdi_core.errors import InputError as ContractInputError
 
 from . import cbioportal, enrich, io, postfilter, selection, version_string
 from .errors import InputError, ManifestError

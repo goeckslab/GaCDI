@@ -16,15 +16,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-        # Both installable packages in the monorepo: the importer/downloader
-        # (gacdi, repo root) and the manifest builder (gacdi-manifest).
-        package: [".", "cli_tools/gacdi_manifest"]
+        # The installable packages in the monorepo: the shared foundation
+        # (gacdi-core), the importer/downloader (gacdi, repo root), and the
+        # manifest builder (gacdi-manifest).
+        package: ["packages/gacdi_core", ".", "cli_tools/gacdi_manifest"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install sibling gacdi (the builder depends on it)
+      - name: Install the shared foundation (both tools depend on it)
+        if: ${{ matrix.package != 'packages/gacdi_core' }}
+        working-directory: ${{ github.workspace }}
+        run: python -m pip install -e packages/gacdi_core
+      - name: Install sibling gacdi (the builder's cross-tool tests import it)
         if: ${{ matrix.package == 'cli_tools/gacdi_manifest' }}
         working-directory: ${{ github.workspace }}
         run: python -m pip install -e .
@@ -41,8 +46,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install both distributions together
+      - name: Install all three distributions together
         run: |
+          python -m pip install -e packages/gacdi_core
           python -m pip install -e '.[dev]'
           python -m pip install -e 'cli_tools/gacdi_manifest[dev]'
       - name: Run the cross-tool selection-bundle integration suite
@@ -56,15 +62,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Build both wheels
+      - name: Build all three wheels
         run: |
           python -m pip install build
+          python -m build --wheel --outdir dist_wheels packages/gacdi_core
           python -m build --wheel --outdir dist_wheels .
           python -m build --wheel --outdir dist_wheels cli_tools/gacdi_manifest
       - name: Install the wheels into a clean venv and smoke-test the CLIs
         run: |
           python -m venv /tmp/smoke
-          /tmp/smoke/bin/python -m pip install dist_wheels/gacdi-*.whl dist_wheels/gacdi_manifest-*.whl
+          /tmp/smoke/bin/python -m pip install \
+            dist_wheels/gacdi_core-*.whl \
+            dist_wheels/gacdi-*.whl \
+            dist_wheels/gacdi_manifest-*.whl
           /tmp/smoke/bin/gacdi --version
           /tmp/smoke/bin/gacdi-manifest --version
           /tmp/smoke/bin/gacdi gdc --help > /dev/null

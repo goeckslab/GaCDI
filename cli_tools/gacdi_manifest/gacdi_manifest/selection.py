@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from gacdi.contracts import (
+from gacdi_core.contracts import (
     ASSET_COLUMNS,
     CONTRACT_VERSION,
     METADATA_LEADING_COLUMNS,
@@ -24,7 +24,7 @@ from gacdi.contracts import (
     SelectionMetadataRow,
     association_row_id,
 )
-from gacdi.validation import validate_assets, validate_metadata, validate_provenance
+from gacdi_core.validation import validate_assets, validate_metadata, validate_provenance
 
 from . import BUILD, version_string
 from .errors import InputError

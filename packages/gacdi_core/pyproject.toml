@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gacdi-core"
+dynamic = ["version"]
+description = "GaCDI shared foundation — canonical selection-bundle contracts, validators, and the retrying HTTP session used by both the manifest builder and the downloader."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "GaCDI contributors" }]
+keywords = ["galaxy", "cancer", "gdc", "contracts", "nih", "nci"]
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/paulocilasjr/GaCDI"
+
+[tool.hatch.version]
+path = "gacdi_core/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gacdi_core"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

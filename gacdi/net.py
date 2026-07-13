@@ -1,8 +1,9 @@
 """HTTP download utilities shared by importers that pull over HTTP(S)/FTP.
 
-A single retrying :class:`requests.Session` plus a streamed, checksum-verifying
-downloader means every importer gets the same robustness for free, and unit
-tests can inject a fake session so no test touches the network.
+The retrying :func:`build_session` constructor is shared with the builder and now
+lives in :mod:`gacdi_core.net`; it is re-exported here so existing
+``from gacdi.net import build_session`` imports keep working. The streamed,
+checksum-verifying downloader below is downloader-specific and stays here.
 """
 
 from __future__ import annotations
@@ -13,8 +14,8 @@ import os
 from pathlib import Path
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+
+from gacdi_core.net import build_session  # noqa: F401 - re-exported for compatibility
 
 from .errors import ChecksumError, DownloadError
 
@@ -22,22 +23,6 @@ log = logging.getLogger("gacdi.net")
 
 DEFAULT_CHUNK = 1 << 20  # 1 MiB
 DEFAULT_TIMEOUT = 60
-
-
-def build_session(retries: int = 5, backoff: float = 0.5) -> requests.Session:
-    """Return a session that retries transient errors with exponential backoff."""
-    session = requests.Session()
-    retry = Retry(
-        total=retries,
-        backoff_factor=backoff,
-        status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=frozenset({"GET", "POST", "HEAD"}),
-        raise_on_status=False,
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
 
 
 def md5sum(path: str | os.PathLike, chunk: int = DEFAULT_CHUNK) -> str:
@@ -93,3 +78,6 @@ def stream_download(
     tmp.replace(dest)
     log.info("downloaded %s (%d bytes)", dest.name, written)
     return written
+
+
+__all__ = ["build_session", "md5sum", "stream_download", "DEFAULT_CHUNK", "DEFAULT_TIMEOUT"]
