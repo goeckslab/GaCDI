@@ -275,9 +275,9 @@ MANIFEST_SUPERSET: tuple[str, ...] = (
     "sample_id",        # link key to metadata (may be empty)
 )
 
-DOWNLOAD_METHODS = frozenset(
-    {"drs", "https", "ftp", "gcs", "sra-toolkit", "synapse", "nbia"}
-)
+DOWNLOAD_METHODS = ("drs", "https", "ftp", "gcs", "sra-toolkit", "synapse", "nbia")
+CHECKSUM_TYPES = ("md5", "sha256", "etag", "")
+ACCESS_LEVELS = ("open", "controlled")
 ACCESS_VALUES = frozenset({"open", "controlled"})
 
 # Per-source physical manifest column order (the "dialect"). GDC stays lean and
@@ -300,30 +300,6 @@ HARMONIZED_CORE_COLUMNS: list[str] = [
 def native_column(source: str, field_name: str) -> str:
     """Column name for a source-native passthrough field, e.g. ``gdc__platform``."""
     return f"{source}__{field_name}"
-
-
-@dataclass
-class ManifestRow:
-    """A downloadable file in source-agnostic (superset) terms.
-
-    Importers build these; the writer projects them onto the source's manifest
-    dialect (:data:`MANIFEST_DIALECTS`). Only ``source``/``file_id``/``filename``
-    are always required; the rest are populated when the source provides them.
-    """
-
-    source: str
-    file_id: str
-    filename: str
-    download_method: str = ""
-    drs_uri: str = ""
-    access_url: str = ""
-    checksum: str = ""
-    checksum_type: str = ""
-    size: str = ""
-    file_format: str = ""
-    access: str = ""
-    case_id: str = ""
-    sample_id: str = ""
 
 
 @dataclass
@@ -385,12 +361,6 @@ class FileRow:
     @property
     def galaxy_ext(self) -> str:
         return galaxy_ext(self.filename, self.data_format)
-
-
-# download_method / checksum_type vocabularies (plan §4.1). Empty string allowed.
-DOWNLOAD_METHODS = ("drs", "https", "ftp", "gcs", "sra-toolkit", "synapse", "nbia")
-CHECKSUM_TYPES = ("md5", "sha256", "etag", "")
-ACCESS_LEVELS = ("open", "controlled")
 
 
 @dataclass
