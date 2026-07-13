@@ -42,7 +42,7 @@
     </inputs>
     <outputs>
         <collection name="gdc_files" type="list" label="GDC files from manifest">
-            <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" visible="true" />
+            <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" />
         </collection>
     </outputs>
     <tests>
