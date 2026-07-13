@@ -41,8 +41,16 @@ manifest --manifest manifest.txt …` → collection, joined back to `metadata.t
 | `gacdi_cda` | [Cancer Data Aggregator](https://datacommons.cancer.gov/) | query | `cdapython` (cross-commons search → manifest) |
 | `gacdi_xena` | [UCSC Xena](https://xena.ucsc.edu/public/) | accession, query | hub HTTP download |
 
-Planned (Phase 2/3): PDC, IDC, ICDC, CDS, CTDC, TCIA, dbGaP, SEER — see
-[the plan](#roadmap).
+PDC and IDC currently ship as selector/builder tools. They emit validated canonical
+selection bundles, but their DRS and GCS download executors are not implemented yet:
+
+| Tool | Repository | Selection output | Status |
+|------|------------|------------------|--------|
+| `gacdi_manifest_pdc` | [Proteomic Data Commons](https://proteomic.datacommons.cancer.gov/) | DRS file manifest + canonical selection bundle | selector shipped; downloader pending |
+| `gacdi_manifest_idc` | [Imaging Data Commons](https://imaging.datacommons.cancer.gov/) | GCS DICOM-series manifest + canonical selection bundle | selector shipped; downloader pending |
+
+Planned (Phase 2/3): PDC/IDC download executors, ICDC, CDS, CTDC, TCIA, dbGaP,
+and SEER — see [the roadmap](#roadmap).
 
 **CDA** is a *search* layer, not a downloader: `gacdi_cda` runs a cross-commons
 query and emits a **manifest table** of matching files (owning commons, `file_id`,
@@ -146,8 +154,8 @@ tests are marked `network` (`pytest -m network`).
 ## Roadmap
 
 - **Phase 1 (this release):** GDC, GEO, SRA.
-- **Phase 2:** PDC (GraphQL), IDC (`idc-index`/`s5cmd`), ICDC, CDS, CTDC — all
-  reuse the manifest-based importer pattern.
+- **Phase 2:** PDC and IDC selectors are shipped; add their DRS/GCS download
+  executors. Add ICDC, CDS, and CTDC using the same canonical bundle pattern.
 - **Phase 3:** TCIA (NBIA REST), dbGaP (SRA + ngc), SEER (Data-Use-Agreement,
   documented/limited importer).
 

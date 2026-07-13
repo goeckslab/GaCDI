@@ -48,6 +48,5 @@ jobs:
           planemo lint
           tools/gdc tools/geo tools/sra tools/cda tools/xena
           tools/manifest_gdc tools/manifest_pdc tools/manifest_idc
-          tools/manifest_icdc tools/manifest_ctdc
       - name: Lint Tool Shed metadata
         run: planemo shed_lint --skip version_bumped --fail_level error .
