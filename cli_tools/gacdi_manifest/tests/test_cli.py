@@ -75,13 +75,13 @@ def test_native_passthrough_columns_present(tmp_path, gdc_api):
     with open(tmp_path / "md.tsv", newline="") as fh:
         header = next(__import__("csv").reader(fh, delimiter="\t"))
     assert any(c.startswith("gdc__") for c in header)
-    assert "gdc__cases.0.demographic.gender" in header
+    assert "gdc__cases.0.demographic.sex_at_birth" in header
 
 
 def test_metadata_filter_on_passthrough_column(tmp_path, gdc_api):
     # The post-query filter can target a native passthrough column.
     rc = main(_args(tmp_path, "--metadata-filter",
-                    "column=gdc__cases.0.demographic.gender;op=in;values=female"))
+                    "column=gdc__cases.0.demographic.sex_at_birth;op=in;values=female"))
     assert rc == 0
     manifest = (tmp_path / "m.txt").read_text()
     assert "uuid1" in manifest and "uuid2" not in manifest

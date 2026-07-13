@@ -63,7 +63,7 @@ def test_full_build_writes_canonical_bundle_with_default_paths(tmp_path, gdc_api
     assert {row["relationship"] for row in metadata_rows} == {"sample"}
     assert all(row["metadata_row_id"].startswith("md_") for row in metadata_rows)
     # Canonical native keys are source-prefixed and escaped; legacy columns remain unchanged.
-    assert "gdc__cases_0_demographic_gender" in metadata_header
+    assert "gdc__cases_0_demographic_sex_at_birth" in metadata_header
 
     values = json.loads(provenance.read_text())
     assert values["contract_version"] == CONTRACT_VERSION
@@ -95,7 +95,7 @@ def test_explicit_output_flags_and_legacy_outputs_remain_compatible(tmp_path, gd
     assert legacy_lines[0] == "id\tfilename\tmd5\tsize\tstate"
     assert legacy_lines[1] == "uuid1\tA.svs\tmd5a\t100\treleased"
     legacy_header, _ = _rows(tmp_path / "legacy_metadata.tsv")
-    assert "gdc__cases.0.demographic.gender" in legacy_header
+    assert "gdc__cases.0.demographic.sex_at_birth" in legacy_header
 
 
 def test_annotation_state_distinguishes_matched_and_unmatched(tmp_path, gdc_api):
