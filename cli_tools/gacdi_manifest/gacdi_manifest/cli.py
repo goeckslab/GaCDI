@@ -12,7 +12,9 @@ import logging
 import sys
 from collections import Counter
 
-from . import cbioportal, enrich, io, postfilter, version_string
+from gacdi.errors import InputError as ContractInputError
+
+from . import cbioportal, enrich, io, postfilter, selection, version_string
 from .errors import InputError, ManifestError
 from .importer import BuildImporter
 from .join import join
@@ -55,6 +57,18 @@ def _add_common_arguments(p: argparse.ArgumentParser) -> None:
     out.add_argument("--manifest-out", default="gdc_manifest.txt")
     out.add_argument("--metadata-out", default="metadata.tsv")
     out.add_argument("--report-out", default="report.tsv")
+    out.add_argument(
+        "--selection-manifest-out",
+        help="Canonical retrieval-asset TSV (default: selection_manifest.tsv beside --manifest-out).",
+    )
+    out.add_argument(
+        "--selection-metadata-out",
+        help="Canonical association metadata TSV (default: selection_metadata.tsv beside --manifest-out).",
+    )
+    out.add_argument(
+        "--selection-provenance-out",
+        help="Canonical provenance JSON (default: selection_provenance.json beside --manifest-out).",
+    )
     p.add_argument("--verbose", action="store_true")
 
 
@@ -81,8 +95,54 @@ def _write_manifest(importer: BuildImporter, path: str, file_rows: list) -> None
         io.write_manifest(path, file_rows)
 
 
+def _resolve_selection_paths(args: argparse.Namespace) -> None:
+    defaults = selection.default_output_paths(args.manifest_out)
+    for attribute, default in zip(
+        ("selection_manifest_out", "selection_metadata_out", "selection_provenance_out"),
+        defaults,
+    ):
+        if not getattr(args, attribute):
+            setattr(args, attribute, default)
+
+
+def _write_selection_outputs(
+    importer: BuildImporter,
+    args: argparse.Namespace,
+    *,
+    file_rows: list,
+    merged_rows: list[dict],
+    query,
+    provenance: dict | None,
+    mode: str,
+    source_matches: int | None,
+    warnings: list[str] | None = None,
+    extra_counts: dict | None = None,
+) -> None:
+    try:
+        selection.write_selection_bundle(
+            importer=importer,
+            file_rows=file_rows,
+            merged_rows=merged_rows,
+            manifest_path=args.selection_manifest_out,
+            metadata_path=args.selection_metadata_out,
+            provenance_path=args.selection_provenance_out,
+            query=query,
+            source_provenance=provenance,
+            annotation_requested=bool(args.cbioportal_study or args.annotation_tsv),
+            mode=mode,
+            source_matches=source_matches,
+            warnings=warnings,
+            extra_counts=extra_counts,
+        )
+    except ContractInputError as exc:
+        # Keep one stable selector error hierarchy/exit code even though canonical
+        # validation is shared with the downloader package.
+        raise InputError(f"Canonical selection output failed validation: {exc}") from exc
+
+
 def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
     session = build_session()
+    _resolve_selection_paths(args)
 
     # Normalise and sanity-check the cBioPortal study id(s) early, before the
     # (expensive) source query, so a bad id fails fast with a clear message.
@@ -109,6 +169,23 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
         _write_manifest(importer, args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
         io.write_report(args.report_out, extra=rows)
+        _write_selection_outputs(
+            importer,
+            args,
+            file_rows=[],
+            merged_rows=[],
+            query={
+                "operation": "cbioportal_list_attributes",
+                "studies": enrich.split_studies(args.cbioportal_study),
+            },
+            provenance={
+                "endpoint": args.cbioportal_base,
+            },
+            mode="preview",
+            source_matches=0,
+            warnings=["Attribute-list mode does not enumerate retrieval assets."],
+            extra_counts={"cbioportal_attributes": len(rows)},
+        )
         log.info("Wrote %d cBioPortal attribute(s) to the report.", len(rows))
         return 0
 
@@ -121,6 +198,16 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
         _write_manifest(importer, args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])
         io.write_report(args.report_out, database_total=total, facets=facet_counts, provenance=prov)
+        _write_selection_outputs(
+            importer,
+            args,
+            file_rows=[],
+            merged_rows=[],
+            query=query,
+            provenance=prov,
+            mode="preview",
+            source_matches=total,
+        )
         log.info("Preview: %d file(s) match the filters.", total)
         return 0
 
@@ -151,6 +238,20 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
                 "e.g. Data format must match the Data type (Slide Image files are SVS, not TSV). "
                 "Try 'Preview counts only' while adjusting filters.",
             )],
+        )
+        empty_warnings = ["No retrieval assets matched the source query."]
+        if dropped:
+            empty_warnings.append(f"Dropped {len(dropped)} source row(s) without an asset identifier.")
+        _write_selection_outputs(
+            importer,
+            args,
+            file_rows=[],
+            merged_rows=[],
+            query=query,
+            provenance=prov,
+            mode="build",
+            source_matches=total_matching,
+            warnings=empty_warnings,
         )
         log.warning("No files matched the filters; wrote empty manifest and a note.")
         return 0
@@ -213,6 +314,24 @@ def _run(importer: BuildImporter, args: argparse.Namespace) -> int:
         enrichment_columns=ann_cols,
         provenance=prov,
         extra=post_notes or None,
+    )
+    selection_warnings = []
+    if dropped:
+        selection_warnings.append(
+            f"Dropped {len(dropped)} source row(s) without an asset identifier."
+        )
+    if args.metadata_filters and not file_rows:
+        selection_warnings.append("Post-query metadata filters removed every retrieval asset.")
+    _write_selection_outputs(
+        importer,
+        args,
+        file_rows=file_rows,
+        merged_rows=merged,
+        query=query,
+        provenance=prov,
+        mode="build",
+        source_matches=total_matching,
+        warnings=selection_warnings,
     )
     log.info(
         "Built manifest with %d file(s); %d matched to annotation, %d unmatched.",

@@ -1,0 +1,23 @@
+{
+  "asset_manifest_sha256": "9f12758891cf06426e2e52c8b2c222ea45017757b783fa816e46f000035d3f8a",
+  "contract_version": "1.0",
+  "counts": {
+    "assets": 1,
+    "cases": 1,
+    "known_source_bytes": 1024,
+    "metadata_rows": 1,
+    "samples": 1
+  },
+  "build": "fixture",
+  "endpoint": "https://api.gdc.cancer.gov/files",
+  "metadata_sha256": "28c830b2b70ca1e6ac17b26d8b1bad526c9d6059fd0123288ca5f401da375e9e",
+  "mode": "build",
+  "query": {
+    "fixture": true
+  },
+  "source": "gdc",
+  "timestamp": "2026-07-12T00:00:00+00:00",
+  "tool": "gacdi-manifest",
+  "tool_version": "0.1.1",
+  "warnings": []
+}

@@ -1,0 +1,2 @@
+source	asset_id	asset_kind	download_method	drs_uri	access_url	access	asset_name	source_size	source_checksum_type	source_checksum	file_format	payload_profile	galaxy_ext_hint	dbkey
+gdc	0001-aaaa-bbbb-cccc	file	gdc-client			open	sample.bam	1024	md5	d41d8cd98f00b204e9800998ecf8427e	BAM	single_bam	bam	hg38
