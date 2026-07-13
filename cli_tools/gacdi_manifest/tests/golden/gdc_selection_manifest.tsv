@@ -1,0 +1,3 @@
+source	asset_id	asset_kind	download_method	drs_uri	access_url	access	asset_name	source_size	source_checksum_type	source_checksum	file_format	payload_profile	galaxy_ext_hint	dbkey
+gdc	uuid1	file	gdc-client			open	A.svs	100			SVS	single_svs	svs	
+gdc	uuid2	file	gdc-client			open	B.svs	200			SVS	single_svs	svs	

@@ -1,0 +1,3 @@
+database	file_id	filename	status	size_bytes	md5	source	message
+gdc	ID1	a.bam	planned	10	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	gdc	dry-run (not downloaded)
+gdc	ID2	b.bam	planned	20	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	gdc	dry-run (not downloaded)
