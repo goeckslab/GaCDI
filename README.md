@@ -60,21 +60,32 @@ files with a direct URL are downloaded automatically.
 
 ## Architecture
 
+The monorepo has three independently installable distributions under `packages/`:
+
 ```
-gacdi/            shared Python package (download engine)
-  base.py         BaseImporter template method (resolve → download → verify → summarize)
-  net.py          retrying HTTP session, streamed download, checksum verify
-  manifest.py     manifest / accession / query parsing
-  history.py      Galaxy output staging (collection dir) + summary TSV
-  auth.py         controlled-access token handling (0600, never logged)
-  importers/      gdc.py, geo.py, sra.py  (one class per repository)
+packages/
+  gacdi_core/            shared foundation (gacdi-core): selection-bundle contracts,
+                         validators, retrying HTTP session, minimal error root
+  gacdi_downloader/      the download engine (dist `gacdi`, import `gacdi`)
+    gacdi/base.py        BaseDownloadSource template method (resolve → download → verify → summarize)
+    gacdi/registry.py    lazy SourceSpec registry (get_source)
+    gacdi/sources/       gdc, geo, sra, cda, xena  (one class per repository)
+    gacdi/clients/       injected transport clients/adapters per source
+  gacdi_manifest_builder/  the manifest builder (dist `gacdi-manifest`, import `gacdi_manifest`)
+    gacdi_manifest/base.py     BaseManifestSource
+    gacdi_manifest/registry.py lazy registry
+    gacdi_manifest/sources/     gdc, pdc, idc
+    gacdi_manifest/clients/     injected transport clients per source
 tools/            Galaxy wrappers; macros.xml holds shared XML
-containers/       Dockerfiles (base + per-tool) → hosted on Quay
+containers/       downloader/ and manifest_builder/ Dockerfiles → hosted on Quay
+integration_tests/  cross-tool builder → downloader selection-bundle handoff
 ```
 
-Adding a repository = one importer class (implement `resolve` + `download`) plus
-one thin XML wrapper; the download loop, retries, checksums, history staging and
-summary are inherited.
+Adding a repository = one source class (compose a client, implement `resolve` +
+`download`, or `build_query` + `fetch`) plus a lazy registry entry and a thin XML
+wrapper; the workflow loop, retries, checksums, history staging, and summary are
+inherited. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design,
+compatibility policy, and the per-tool "add a source" cookbooks.
 
 ## Command-line usage
 
@@ -144,8 +155,17 @@ be handled in accordance with the repository's Data Use Agreement.**
 ## Development
 
 ```bash
-python -m pip install -e '.[dev]'
-pytest -q                       # unit tests (mocked; no network)
+# Install the shared foundation first, then the two tools (editable).
+python -m pip install -e packages/gacdi_core
+python -m pip install -e 'packages/gacdi_downloader[dev]'
+python -m pip install -e 'packages/gacdi_manifest_builder[dev]'
+
+# Per-tool offline suites (run from each package root):
+( cd packages/gacdi_downloader && pytest -q -m "not network" )
+( cd packages/gacdi_manifest_builder && pytest -q -m "not network" )
+# Cross-tool selection-bundle handoff:
+pytest -q integration_tests
+
 planemo lint tools/gdc tools/geo tools/sra
 ```
 

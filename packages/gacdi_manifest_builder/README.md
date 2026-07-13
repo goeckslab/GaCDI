@@ -109,6 +109,34 @@ pytest -q                            # mocked; no network
 planemo lint tools/manifest_gdc
 ```
 
+See [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) for the layered
+source/client/registry design and the compatibility policy.
+
+## Cookbook: adding a manifest source
+
+1. Add or reuse a client under `gacdi_manifest/clients/` that owns the transport
+   (endpoints, request construction, pagination, `ApiError` translation, raw
+   responses).
+2. Add `gacdi_manifest/sources/<name>.py` implementing `BaseManifestSource` (from
+   `gacdi_manifest.base`). Accept the client in the constructor (create a default
+   when none is supplied) so tests can inject a fake; keep query construction,
+   native-to-`FileRow` mapping, harmonization, and provenance in the source.
+3. Add a lazy `SourceSpec` entry to `gacdi_manifest/registry.py`
+   (`target="gacdi_manifest.sources.<name>:<Name>ManifestSource"`).
+4. Test query construction, client behaviour (real HTTP via `requests-mock`),
+   native-to-domain mapping (a fake client), contract validation, provenance, and
+   CLI output.
+5. Add the Galaxy wrapper under `tools/manifest_<name>/` and representative test
+   data, keeping its `macros.xml` self-contained.
+6. Reuse the builder image unless the source needs a new runtime dependency.
+7. Document its native fields, harmonized fields, manifest dialect, pagination,
+   authentication, and count/facet support.
+
+**Definition of done:** importing the source performs no network access; the
+absence of its optional dependency does not break another source; its registry
+contract passes; client errors become stable tool-level errors; output contracts
+and provenance validate; offline CLI tests pass; and Galaxy lint/tests pass.
+
 ## Roadmap
 
 - **Phase 1 (done):** GDC manifest builder + enrichment + join/QC, behind a pluggable
