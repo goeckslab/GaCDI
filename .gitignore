@@ -1,3 +1,7 @@
+# Planemo-generated test outputs
+tool_test_output.html
+tool_test_output.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

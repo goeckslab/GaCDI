@@ -4,12 +4,15 @@
     name="GDC Data Downloader"
     version="0.0.1"
     hidden="false"
-    profile="26.1"
-/>
+    profile="25.1"
+>
     <description>Acquire data from the NCI Genomic Data Commons</description>
     <command><![CDATA[
         mkdir ./downloads &&
-        gdc-client download -m $manifest_file  -t <(printf '%s' "\$GDC_TOKEN") -d ./downloads &&
+        mkfifo token.pipe &&
+        (printf '%s' "\$GDC_AUTH_TOKEN" > token.pipe &) &&
+        gdc-client download -m "$manifest_file" -t token.pipe -d ./downloads &&
+        rm -f token.pipe &&
         rm -rf ./downloads/*/logs
     ]]></command>
     <requirements>
@@ -42,4 +45,42 @@
             <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" visible="true" />
         </collection>
     </outputs>
+    <tests>
+        <test expect_num_outputs="1">
+            <param name="manifest_file" value="test-manifest.txt" ftype="txt" />
+            <output_collection name="gdc_files" type="list" count="1">
+                <element name="TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8">
+                    <assert_contents>
+                        <has_size value="43659635" />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+    </tests>
+    <help><![CDATA[
+**What it does**
+
+Downloads data files from the `NCI Genomic Data Commons (GDC) <https://portal.gdc.cancer.gov/>`_ using
+``gdc-client``, based on a GDC manifest file.
+
+**Manifest**
+
+The input is a manifest file listing the files to download, generated from the
+`GDC Data Portal <https://portal.gdc.cancer.gov/>`_ (e.g. via the cart download option).
+
+**Authorization token (optional)**
+
+A GDC authorization token is only required to download **controlled-access** datasets; open-access
+data can be downloaded without one. Tokens are also obtained from the
+`GDC Data Portal <https://portal.gdc.cancer.gov/>`_, under your account profile.
+
+To use your authorization token, store it using Galaxy's credentials
+system, which keeps it encrypted and injects it securely at runtime. See
+`Galaxy's credentials documentation <https://galaxyproject.org/news/2026-01-12-tool-credentials-system/#how-to-use-it-for-galaxy-users>`_
+for instructions on adding your GDC token as a credential.
+
+**Output**
+
+A collection containing the files listed in the manifest, as downloaded from the GDC.
+    ]]></help>
 </tool>
