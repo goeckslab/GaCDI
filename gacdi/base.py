@@ -19,6 +19,7 @@ from .auth import TokenFile
 from .errors import AuthError, DownloadError, GacdiError, InputError
 from .history import (
     ensure_output_dir,
+    collection_output_for_summary,
     write_import_provenance,
     write_imported_metadata,
     write_dataset_map,
@@ -172,7 +173,11 @@ class BaseImporter(ABC):
             if cfg.dataset_map:
                 write_dataset_map(cfg.dataset_map, summary)
             if cfg.galaxy_metadata:
-                write_galaxy_metadata(cfg.galaxy_metadata, summary)
+                write_galaxy_metadata(
+                    cfg.galaxy_metadata,
+                    summary,
+                    collection_name=collection_output_for_summary(summary),
+                )
             if cfg.imported_metadata:
                 write_imported_metadata(cfg.imported_metadata, summary)
             if cfg.retry_manifest:

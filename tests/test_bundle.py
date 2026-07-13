@@ -287,8 +287,8 @@ def test_gdc_bundle_run_materializes_all_handoff_artifacts(tmp_path, monkeypatch
     summary = GDCImporter().run(cfg)
     assert [result.status for result in summary.results] == ["ok"]
     galaxy = json.loads((tmp_path / "galaxy.json").read_text())
-    assert galaxy["downloaded"]["datasets"][0]["ext"] == "vcf_bgzip"
-    assert galaxy["downloaded"]["datasets"][0]["identifier_0"] == "A1"
+    assert galaxy["downloaded_vcf"]["datasets"][0]["ext"] == "vcf_bgzip"
+    assert galaxy["downloaded_vcf"]["datasets"][0]["identifier_0"] == "A1"
     imported = list(csv.DictReader((tmp_path / "imported.tsv").open(), delimiter="\t"))
     assert imported[0]["sample_id"] == "S1"
     assert imported[0]["element_id"] == "A1"
@@ -548,4 +548,4 @@ def test_cli_bundle_dry_run_accepts_all_report_flags(tmp_path):
     assert "planned" in summary.read_text()
     assert "planned" in transfer.read_text()
     assert len(dataset_map.read_text().splitlines()) == 1
-    assert json.loads(galaxy_metadata.read_text()) == {"downloaded": {"datasets": []}}
+    assert json.loads(galaxy_metadata.read_text()) == {"downloaded_vcf": {"datasets": []}}

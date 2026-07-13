@@ -128,6 +128,36 @@ _TRANSFER_STATUS = {
     "skipped": "unsupported",
 }
 
+# Galaxy collection outputs are declared statically in the tool XML.  A
+# canonical bundle has exactly one payload profile, so materialization can
+# select the matching typed output deterministically.
+COLLECTION_OUTPUT_BY_PROFILE = {
+    "single_bam": "downloaded_bam",
+    "single_cram": "downloaded_cram",
+    "single_vcf": "downloaded_vcf",
+    "single_svs": "downloaded_svs",
+    "single_table": "downloaded_table",
+    "single_data": "downloaded_data",
+    "reads_paired": "downloaded_paired",
+    "raw_mixed": "downloaded_raw",
+}
+
+
+def collection_output_for_summary(summary: RunSummary) -> str:
+    """Return the statically declared Galaxy output for this run's profile."""
+    profiles = {
+        str(_asset_value(result, "payload_profile", ""))
+        for result in summary.results
+        if _asset_value(result, "payload_profile", "")
+    }
+    if len(profiles) > 1:
+        raise ValueError(
+            "A Galaxy collection must have one payload_profile; found: "
+            + ", ".join(sorted(profiles))
+        )
+    profile = next(iter(profiles), "raw_mixed")
+    return COLLECTION_OUTPUT_BY_PROFILE.get(profile, "downloaded_data")
+
 
 def _asset_value(result: DownloadResult, field: str, default=""):
     asset = result.entry.extra.get("selection_asset")
@@ -253,6 +283,7 @@ def write_galaxy_metadata(
                 continue
             item = {
                 "identifier_0": dataset.element_id,
+                "name": Path(dataset.path).name,
                 "filename": dataset.path,
                 "ext": dataset.galaxy_ext or "data",
             }

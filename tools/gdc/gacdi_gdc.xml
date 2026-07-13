@@ -73,7 +73,28 @@
         <expand macro="advanced_options"/>
     </inputs>
     <outputs>
-        <collection name="downloaded" type="list" label="${tool.name} on ${on_string}: downloaded files">
+        <collection name="downloaded_bam" type="list" format="bam" label="${tool.name} on ${on_string}: downloaded BAM files">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <collection name="downloaded_cram" type="list" format="cram" label="${tool.name} on ${on_string}: downloaded CRAM files">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <collection name="downloaded_vcf" type="list" format="vcf_bgzip" label="${tool.name} on ${on_string}: downloaded VCF files">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <collection name="downloaded_svs" type="list" format="svs" label="${tool.name} on ${on_string}: downloaded SVS files">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <collection name="downloaded_table" type="list" format="tabular" label="${tool.name} on ${on_string}: downloaded tables">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <collection name="downloaded_data" type="list" label="${tool.name} on ${on_string}: downloaded data">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <collection name="downloaded_paired" type="list:paired" label="${tool.name} on ${on_string}: downloaded paired reads">
+            <discover_datasets from_provided_metadata="true" visible="false"/>
+        </collection>
+        <collection name="downloaded_raw" type="list" label="${tool.name} on ${on_string}: downloaded heterogeneous files">
             <discover_datasets from_provided_metadata="true" visible="false"/>
         </collection>
         <data name="summary" format="tabular" label="${tool.name} on ${on_string}: compatibility summary"/>

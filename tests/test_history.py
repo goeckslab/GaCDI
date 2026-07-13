@@ -5,6 +5,7 @@ import json
 from gacdi.history import (
     DATASET_MAP_COLUMNS,
     TRANSFER_REPORT_COLUMNS,
+    collection_output_for_summary,
     safe_filename,
     unique_path,
     write_dataset_map,
@@ -28,6 +29,17 @@ def test_unique_path(tmp_path):
     p2 = unique_path(tmp_path, "x.txt")
     assert p1.name == "x.txt"
     assert p2.name == "x_1.txt"
+
+
+def test_collection_output_is_typed_by_single_payload_profile():
+    paired = FileEntry(
+        file_id="RUN1",
+        filename="reads_1.fastq.gz",
+        source="gdc",
+        extra={"payload_profile": "reads_paired"},
+    )
+    summary = RunSummary("gdc", [DownloadResult(paired, "planned")])
+    assert collection_output_for_summary(summary) == "downloaded_paired"
 
 
 def test_write_summary_rows(tmp_path):
@@ -170,7 +182,27 @@ def test_galaxy_metadata_handles_multidot_and_duplicate_filenames(tmp_path):
     assert [row["filename"] for row in datasets] == [str(left), str(right)]
     assert all(row["ext"] == "vcf_bgzip" for row in datasets)
     assert all(row["dbkey"] == "hg38" for row in datasets)
-    assert all("name" not in row for row in datasets)
+    assert [row["name"] for row in datasets] == ["calls.vcf.gz", "calls.vcf.gz"]
+
+
+def test_galaxy_metadata_preserves_unique_duplicate_names(tmp_path):
+    first = tmp_path / "calls.vcf.gz"
+    second = tmp_path / "calls_1.vcf.gz"
+    first.write_bytes(b"one")
+    second.write_bytes(b"two")
+    results = []
+    for asset_id, path in (("A1", first), ("A2", second)):
+        entry = FileEntry(file_id=asset_id, filename="calls.vcf.gz", source="gdc")
+        dataset = ProducedDataset(
+            path=str(path), element_id=asset_id, galaxy_ext="vcf_bgzip", dbkey="hg38",
+            bytes=path.stat().st_size,
+        )
+        results.append(DownloadResult(entry, "ok", produced=[dataset]))
+    output = tmp_path / "galaxy.json"
+    write_galaxy_metadata(output, RunSummary("gdc", results), collection_name="downloaded_vcf")
+    datasets = json.loads(output.read_text())["downloaded_vcf"]["datasets"]
+    assert [row["name"] for row in datasets] == ["calls.vcf.gz", "calls_1.vcf.gz"]
+    assert all(row["ext"] == "vcf_bgzip" and row["dbkey"] == "hg38" for row in datasets)
 
 
 def test_imported_metadata_joins_associations_to_elements(tmp_path):
