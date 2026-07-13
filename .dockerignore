@@ -1,6 +1,7 @@
 .git
 .github
-tests
+**/tests
+integration_tests
 tools
 **/__pycache__
 *.pyc

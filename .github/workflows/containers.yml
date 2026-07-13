@@ -13,10 +13,10 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "gacdi/**"
-      - "cli_tools/gacdi_manifest/**"
+      - "packages/gacdi_core/**"
+      - "packages/gacdi_downloader/**"
+      - "packages/gacdi_manifest_builder/**"
       - "containers/**"
-      - "pyproject.toml"
       - ".dockerignore"
       - ".github/workflows/containers.yml"
   workflow_dispatch:
@@ -42,8 +42,8 @@ jobs:
         with:
           filters: |
             downloader:
-              - 'gacdi/**'
-              - 'pyproject.toml'
+              - 'packages/gacdi_core/**'
+              - 'packages/gacdi_downloader/**'
               - 'containers/Dockerfile.base'
               - 'containers/Dockerfile.cda'
               - 'containers/Dockerfile.gdc'
@@ -53,9 +53,8 @@ jobs:
               - '.dockerignore'
               - '.github/workflows/containers.yml'
             manifest:
-              - 'gacdi/**'
-              - 'pyproject.toml'
-              - 'cli_tools/gacdi_manifest/**'
+              - 'packages/gacdi_core/**'
+              - 'packages/gacdi_manifest_builder/**'
               - 'containers/Dockerfile.manifest'
               - '.dockerignore'
               - '.github/workflows/containers.yml'
@@ -70,7 +69,7 @@ jobs:
       - name: Read version from gacdi/__init__.py
         id: version
         run: |
-          VERSION=$(grep -m1 '^__version__' gacdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          VERSION=$(grep -m1 '^__version__' packages/gacdi_downloader/gacdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
@@ -117,7 +116,7 @@ jobs:
       - name: Read version from gacdi/__init__.py
         id: version
         run: |
-          VERSION=$(grep -m1 '^__version__' gacdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          VERSION=$(grep -m1 '^__version__' packages/gacdi_downloader/gacdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
@@ -163,7 +162,7 @@ jobs:
       - name: Read version from package __init__.py
         id: version
         run: |
-          VERSION=$(grep -m1 '^__version__' cli_tools/gacdi_manifest/gacdi_manifest/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          VERSION=$(grep -m1 '^__version__' packages/gacdi_manifest_builder/gacdi_manifest/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3

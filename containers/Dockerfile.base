@@ -15,10 +15,14 @@ USER root
 COPY containers/env/base.yml /tmp/base.yml
 RUN micromamba install -y -n base -f /tmp/base.yml && micromamba clean -a -y
 
-# 2. Install the gacdi package from source into the base env.
+# 2. Install the shared foundation, then the gacdi package, from source.
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
-COPY pyproject.toml README.md LICENSE /opt/gacdi/
-COPY gacdi /opt/gacdi/gacdi
+COPY packages/gacdi_core/pyproject.toml packages/gacdi_core/README.md packages/gacdi_core/LICENSE /opt/gacdi_core/
+COPY packages/gacdi_core/gacdi_core /opt/gacdi_core/gacdi_core
+RUN python -m pip install --no-cache-dir /opt/gacdi_core
+
+COPY packages/gacdi_downloader/pyproject.toml packages/gacdi_downloader/README.md packages/gacdi_downloader/LICENSE /opt/gacdi/
+COPY packages/gacdi_downloader/gacdi /opt/gacdi/gacdi
 RUN python -m pip install --no-cache-dir /opt/gacdi && python -c "import gacdi; print(gacdi.__version__)"
 
 ENV PATH=/opt/conda/bin:$PATH
