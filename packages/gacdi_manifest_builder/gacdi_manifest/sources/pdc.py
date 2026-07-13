@@ -17,19 +17,17 @@ from __future__ import annotations
 
 import datetime
 
-import requests
-
 from .. import version_string
-from ..errors import ApiError, InputError
 from ..base import BaseManifestSource
+from ..clients.pdc import PDC_GRAPHQL, STUDY_FIELDS as _STUDY_FIELDS, PDCGraphQLClient
+from ..errors import InputError
 from ..model import FileRow, ManifestRow
 
-PDC_GRAPHQL = "https://proteomic.datacommons.cancer.gov/graphql"
+# Re-exported for compatibility; the canonical constant lives in clients.pdc.
+__all__ = ["PDC_GRAPHQL", "DRS_PREFIX", "PDCManifestSource", "PDCImporter"]
+
 # CRDC DRS prefix that resolves PDC file ids (confirmed: self_uri drs://dg.4DFC:<uuid>).
 DRS_PREFIX = "drs://dg.4DFC:"
-# Study-level fields attached to every file row for harmonization + passthrough.
-_STUDY_FIELDS = ("pdc_study_id", "submitter_id_name", "disease_type", "primary_site",
-                 "analytical_fraction", "experiment_type")
 
 
 def _matches(value: str, wanted: str | None) -> bool:
@@ -46,6 +44,11 @@ class PDCManifestSource(BaseManifestSource):
     help = "Build a DRS manifest from the Proteomic Data Commons (PDC)."
     manifest_dialect = "source"
 
+    def __init__(self, client: PDCGraphQLClient | None = None) -> None:
+        # The transport client is injected for tests; a default is created when
+        # none is supplied so existing callers stay compatible.
+        self._client = client or PDCGraphQLClient()
+
     def add_arguments(self, p) -> None:
         f = p.add_argument_group("guided filters")
         f.add_argument("--pdc-study-id", dest="pdc_study_id",
@@ -56,19 +59,6 @@ class PDCManifestSource(BaseManifestSource):
                        help="e.g. Proteome, Phosphoproteome, Ubiquitylome.")
         f.add_argument("--data-category", dest="data_category",
                        help="Keep only files in this data category, e.g. 'Raw Mass Spectra'.")
-
-    # --- GraphQL plumbing -------------------------------------------------
-    def _gql(self, session: requests.Session, query: str) -> dict:
-        try:
-            resp = session.post(PDC_GRAPHQL, json={"query": query}, timeout=60)
-        except requests.RequestException as exc:  # pragma: no cover - network only
-            raise ApiError(f"PDC request failed: {exc}") from exc
-        if resp.status_code >= 400:
-            raise ApiError(f"PDC API returned HTTP {resp.status_code}: {resp.text[:300]}")
-        body = resp.json()
-        if body.get("errors"):
-            raise ApiError(f"PDC GraphQL error: {body['errors'][0].get('message', '')[:300]}")
-        return body.get("data") or {}
 
     def build_query(self, args) -> dict:
         study_ids = [s.strip() for s in (args.pdc_study_id or "").split(",") if s.strip()]
@@ -90,35 +80,20 @@ class PDCManifestSource(BaseManifestSource):
         """Return study dicts matching the query (by explicit id, or by facet filters)."""
         wanted_ids = set(query["study_ids"])
         studies: list[dict] = []
-        offset, limit = 0, 100
-        while True:
-            fields = " ".join(_STUDY_FIELDS)
-            data = self._gql(session, f'{{ getPaginatedUIStudy(offset:{offset} limit:{limit}) '
-                                       f'{{ total uiStudies {{ {fields} }} }} }}')
-            page = (data.get("getPaginatedUIStudy") or {})
-            batch = page.get("uiStudies") or []
-            for s in batch:
-                if wanted_ids:
-                    if s.get("pdc_study_id") in wanted_ids:
-                        studies.append(s)
-                elif (_matches(s.get("disease_type", ""), query["disease_type"])
-                      and _matches(s.get("primary_site", ""), query["primary_site"])
-                      and _matches(s.get("analytical_fraction", ""), query["analytical_fraction"])):
+        for s in self._client.iter_studies(session):
+            if wanted_ids:
+                if s.get("pdc_study_id") in wanted_ids:
                     studies.append(s)
-            offset += limit
-            if offset >= int(page.get("total") or 0) or not batch:
-                break
+            elif (_matches(s.get("disease_type", ""), query["disease_type"])
+                  and _matches(s.get("primary_site", ""), query["primary_site"])
+                  and _matches(s.get("analytical_fraction", ""), query["analytical_fraction"])):
+                studies.append(s)
         return studies
 
     def _files(self, session, study: dict, data_category: str | None, limit_remaining):
         """Yield FileRow objects for one study, tagged with study-level fields."""
         sid = study.get("pdc_study_id")
-        data = self._gql(
-            session,
-            f'{{ filesPerStudy(pdc_study_id:"{sid}" acceptDUA:true) '
-            f'{{ file_id file_name file_type md5sum file_size data_category }} }}',
-        )
-        for f in (data.get("filesPerStudy") or []):
+        for f in self._client.files_for_study(session, sid):
             if not _matches(f.get("data_category", ""), data_category):
                 continue
             meta = {
@@ -180,7 +155,7 @@ class PDCManifestSource(BaseManifestSource):
         import json
         return {
             "source": "pdc",
-            "endpoint": PDC_GRAPHQL,
+            "endpoint": self._client.endpoint,
             "tool_version": version_string(),
             "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "query_filters": json.dumps(query, sort_keys=True, separators=(",", ":")),
