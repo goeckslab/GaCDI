@@ -249,7 +249,8 @@ class GDCImporter(BaseImporter):
                 "size": page_size,
                 "from": start,
             }
-            resp = self.session.post(API_FILES_ENDPOINT, json=payload, timeout=60)
+            endpoint = str(cfg.options.get("gdc_files_endpoint") or API_FILES_ENDPOINT)
+            resp = self.session.post(endpoint, json=payload, timeout=60)
             if resp.status_code >= 400:
                 raise DownloadError(f"GDC API returned HTTP {resp.status_code}: {resp.text[:200]}")
             data = resp.json().get("data", {})
