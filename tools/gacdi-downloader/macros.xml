@@ -23,6 +23,55 @@
         </requirements>
     </xml>
 
+    <!-- Data commons file names are the only datatype signal available at
+         discovery time, and their extensions are not Galaxy extensions: PDC
+         publishes .mzML, .mzid and .psm where Galaxy expects mzml, mzid and
+         tabular, and Thermo instrument files are .raw where Galaxy expects
+         thermo.raw. Each pattern below therefore states its Galaxy datatype
+         explicitly. Sniffing is avoided on purpose; these files reach hundreds
+         of megabytes and several are binary or otherwise unsniffable.
+
+         Patterns keep the complete file name as the element identifier so that
+         collection elements read the same as the manifest rows they came from.
+         Case is matched loosely because the commons are inconsistent about it
+         (.mzML, .mzXML, .pepXML). Every pattern is anchored, and the catch-all
+         excludes the extensions claimed above it, so each discovered file
+         matches exactly one rule: no file is dropped, and none is claimed
+         twice as a duplicate element identifier. -->
+    <token name="@TYPED_EXTENSIONS@">mzml|mzid|mzxml|mgf|raw|psm|tsv|txt|maf|sf|csv|pepxml|protxml</token>
+
+    <xml name="discover" tokens="pattern,ext">
+        <discover_datasets
+            pattern="(?P&lt;designation&gt;.*\.(?i:@PATTERN@))$"
+            ext="@EXT@"
+            directory="downloads"
+            recurse="true"
+            sort_by="name"
+        />
+    </xml>
+
+    <xml name="discover_typed">
+        <expand macro="discover" pattern="mzml" ext="mzml"/>
+        <expand macro="discover" pattern="mzid" ext="mzid"/>
+        <expand macro="discover" pattern="mzxml" ext="mzxml"/>
+        <expand macro="discover" pattern="mgf" ext="mgf"/>
+        <expand macro="discover" pattern="raw" ext="thermo.raw"/>
+        <expand macro="discover" pattern="pepxml" ext="pepxml"/>
+        <expand macro="discover" pattern="protxml" ext="protxml"/>
+        <expand macro="discover" pattern="psm|tsv|txt|maf|sf" ext="tabular"/>
+        <expand macro="discover" pattern="csv" ext="csv"/>
+        <!-- Anything the commons publish that is not named above: kept as
+             untyped `data` rather than discarded, so the collection always
+             accounts for every downloaded file. -->
+        <discover_datasets
+            pattern="(?P&lt;designation&gt;(?!.*\.(?i:@TYPED_EXTENSIONS@)$).*)$"
+            ext="data"
+            directory="downloads"
+            recurse="true"
+            sort_by="name"
+        />
+    </xml>
+
     <xml name="citations">
         <citations>
             <citation type="bibtex"><![CDATA[

@@ -21,20 +21,12 @@
         <collection name="commons_files" type="list" label="Files from manifest">
             <!-- Discovery must not derive the datatype from the file name. Data commons
                  payloads carry extensions that are not registered Galaxy datatypes
-                 (.raw, .psm, .mzid.gz, .svs, .bam.bai, ...). Under __name_and_ext__ the
-                 trailing token is handed to the datatype registry verbatim, which yields
-                 elements Galaxy cannot resolve: the HDCA is stamped with an element_count
-                 while the elements themselves never become viewable, so the history shows
-                 "a list with N datasets" that opens empty. Keeping the whole file name as
-                 the element identifier and letting Galaxy sniff the datatype (falling back
-                 to `data`) keeps every element valid regardless of the commons' naming. -->
-            <discover_datasets
-                pattern="__name__"
-                directory="downloads"
-                recurse="true"
-                ext="auto"
-                sort_by="name"
-            />
+                 (.raw, .psm, .mzid, .svs, ...). Under __name_and_ext__ the trailing token
+                 is handed to the datatype registry verbatim, which yields elements Galaxy
+                 cannot resolve: the HDCA is stamped with an element_count while the
+                 elements themselves never become viewable, so the history shows "a list
+                 with N datasets" that opens empty. See the `discover_typed` macro. -->
+            <expand macro="discover_typed"/>
         </collection>
     </outputs>
     <tests>
@@ -42,7 +34,10 @@
         <test expect_num_outputs="1">
             <param name="manifest_file" value="test-manifest.txt" ftype="txt" />
             <output_collection name="commons_files" type="list" count="1">
-                <element name="TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8.svs">
+                <!-- .svs is not a Galaxy datatype, so this element exercises the
+                     catch-all rule: typed as `data`, named for the published file,
+                     and present in the collection rather than silently dropped. -->
+                <element name="TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8.svs" ftype="data">
                     <assert_contents>
                         <has_size value="43659635" />
                     </assert_contents>
@@ -85,11 +80,48 @@ rows.
 
 **Output**
 
-A collection containing every file listed in the manifest. Each element is named
-with the complete file name as published by the commons, including its extension
-(for example ``06CPTAC_C_GBM_W_PNNL_20210830_B2S1_f08.mzML.gz``). Galaxy detects
-each element's datatype by inspecting the file; formats Galaxy does not recognize
-are kept as ``data`` and remain fully downloadable and usable as tool input.
+A collection containing every file listed in the manifest, ready to feed straight
+into an analysis pipeline.
+
+Elements keep the file name published by the commons, so a collection element
+reads the same as the manifest row it came from. Formats that Galaxy models are
+typed on arrival rather than sniffed:
+
+==========================  ====================  ==========================================
+Published as                Galaxy datatype       Typical use
+==========================  ====================  ==========================================
+``.mzML`` / ``.mzML.gz``    ``mzml``              spectra for Comet, MS-GF+, OpenMS, MaxQuant
+``.mzXML``                  ``mzxml``             legacy open spectra
+``.mgf``                    ``mgf``               peak lists
+``.raw``                    ``thermo.raw``        Thermo native, input to msconvert
+``.mzid`` / ``.mzid.gz``    ``mzid``              peptide-spectrum match identifications
+``.pepXML`` / ``.protXML``  ``pepxml``/``protxml``  search and inference results
+``.psm``, ``.tsv``, ``.txt``  ``tabular``         PSM tables, clinical and metadata files
+==========================  ====================  ==========================================
+
+Anything else is kept as ``data``: still downloadable, still usable, just not
+typed. No file listed in the manifest is ever dropped from the collection.
+
+**Compressed files are expanded for you**
+
+The commons publish several formats gzipped. Galaxy's ``mzml`` and ``mzid``
+datatypes describe uncompressed XML, so gzipped downloads would not be accepted
+by downstream proteomics tools without a manual conversion step. This tool
+verifies each download against the manifest's size and MD5 and *then* expands
+it, so ``06CPTAC_C_GBM_W_PNNL_20210830_B2S1_f08.mzML.gz`` arrives in your history
+as a usable ``mzml`` dataset.
+
+Formats that are compressed by design keep their compression: BAM, BGZF-indexed
+VCF, tabix indexes, and FASTQ are never expanded.
+
+**Building a pipeline from here**
+
+A typical reprocessing route is ``.raw`` → msconvert → ``mzml`` → a search engine
+(Comet, MS-GF+, SearchGUI) against a FASTA with decoys → FDR control → protein
+inference and quantification. To start from the commons' own identifications
+instead, take the ``mzid`` or ``.psm`` elements directly into filtering and
+statistics. Note that a manifest exported without care can mix fractions, batches
+and studies; check that the files you select form a coherent set before searching.
     ]]></help>
     <expand macro="citations"/>
 </tool>

@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 from ..errors import DownloadError
+from .decompress import expand_directory
 
 log = logging.getLogger("gacdi_manifest.download.gdc")
 
@@ -42,6 +43,7 @@ def download_gdc(
     outdir: str | Path,
     *,
     environ: dict[str, str] | None = None,
+    decompress: bool = True,
 ) -> int:
     """Invoke ``gdc-client`` without exposing an authorization token in argv or a file."""
     destination = Path(outdir)
@@ -120,5 +122,10 @@ def download_gdc(
         if fifo is not None:
             fifo.unlink(missing_ok=True)
         _remove_gdc_logs(destination)
+
+    # gdc-client verifies each file's checksum itself, so expansion is safe once
+    # it exits cleanly. BAM, BGZF VCF, and index files are skipped by allow-list.
+    if decompress:
+        expand_directory(destination)
 
     return 0

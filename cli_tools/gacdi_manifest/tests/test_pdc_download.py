@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import csv
+import gzip
 import hashlib
+import io
 import http.server
 import threading
 from pathlib import Path
@@ -225,3 +227,76 @@ def test_missing_md5_is_rejected_before_download(tmp_path, requests_mock):
     with pytest.raises(DownloadError, match="no Md5sum"):
         download_pdc(manifest, tmp_path / "out")
     assert not requests_mock.called
+
+
+def _gzipped(payload: bytes) -> bytes:
+    buffer = io.BytesIO()
+    with gzip.GzipFile(fileobj=buffer, mode="wb", mtime=0) as handle:
+        handle.write(payload)
+    return buffer.getvalue()
+
+
+def test_gzipped_xml_is_expanded_for_downstream_tools(tmp_path, requests_mock):
+    spectra, identifications = b"<mzML>spectra</mzML>", b"<MzIdentML/>"
+    rows = [
+        _row("run.mzML.gz", "https://pdc.test/mzml", _gzipped(spectra)),
+        _row("run.mzid.gz", "https://pdc.test/mzid", _gzipped(identifications), "uuid-2"),
+    ]
+    manifest = _manifest(tmp_path / "manifest.csv", rows)
+    requests_mock.get("https://pdc.test/mzml", content=_gzipped(spectra))
+    requests_mock.get("https://pdc.test/mzid", content=_gzipped(identifications))
+
+    assert download_pdc(manifest, tmp_path / "out") == 2
+    assert (tmp_path / "out/run.mzML").read_bytes() == spectra
+    assert (tmp_path / "out/run.mzid").read_bytes() == identifications
+    assert not (tmp_path / "out/run.mzML.gz").exists()
+
+
+def test_integrity_is_verified_against_the_compressed_bytes(tmp_path, requests_mock):
+    """The manifest describes the archive, so a corrupt archive must still fail."""
+    archive = _gzipped(b"<mzML>spectra</mzML>")
+    row = _row("run.mzML.gz", "https://pdc.test/mzml", archive)
+    requests_mock.get("https://pdc.test/mzml", content=_gzipped(b"<mzML>different</mzML>"))
+    row["File Size (in bytes)"] = str(len(_gzipped(b"<mzML>different</mzML>")))
+    manifest = _manifest(tmp_path / "manifest.csv", [row])
+
+    with pytest.raises(DownloadError, match="MD5 mismatch"):
+        download_pdc(manifest, tmp_path / "out")
+    assert not (tmp_path / "out/run.mzML").exists()
+    assert not (tmp_path / "out/run.mzML.gz").exists()
+
+
+def test_keep_compressed_preserves_the_published_file(tmp_path, requests_mock):
+    archive = _gzipped(b"<mzML>spectra</mzML>")
+    manifest = _manifest(tmp_path / "manifest.csv", [_row("run.mzML.gz", "https://pdc.test/m", archive)])
+    requests_mock.get("https://pdc.test/m", content=archive)
+
+    assert download_pdc(manifest, tmp_path / "out", decompress=False) == 1
+    assert (tmp_path / "out/run.mzML.gz").read_bytes() == archive
+    assert not (tmp_path / "out/run.mzML").exists()
+
+
+def test_rerun_skips_an_already_expanded_file(tmp_path, requests_mock):
+    """Expanded output is the resume signal; its MD5 cannot match the manifest."""
+    archive = _gzipped(b"<mzML>spectra</mzML>")
+    manifest = _manifest(tmp_path / "manifest.csv", [_row("run.mzML.gz", "https://pdc.test/m", archive)])
+    outdir = tmp_path / "out"
+    outdir.mkdir()
+    (outdir / "run.mzML").write_bytes(b"<mzML>spectra</mzML>")
+
+    assert download_pdc(manifest, outdir) == 0
+    assert not requests_mock.called
+
+
+def test_resumed_archive_from_an_interrupted_run_is_expanded(tmp_path, requests_mock):
+    """A verified archive left by a crash before expansion is finished, not refetched."""
+    archive = _gzipped(b"<mzML>spectra</mzML>")
+    manifest = _manifest(tmp_path / "manifest.csv", [_row("run.mzML.gz", "https://pdc.test/m", archive)])
+    outdir = tmp_path / "out"
+    outdir.mkdir()
+    (outdir / "run.mzML.gz").write_bytes(archive)
+
+    assert download_pdc(manifest, outdir) == 0
+    assert not requests_mock.called
+    assert (outdir / "run.mzML").read_bytes() == b"<mzML>spectra</mzML>"
+    assert not (outdir / "run.mzML.gz").exists()

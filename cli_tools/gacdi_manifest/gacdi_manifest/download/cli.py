@@ -23,6 +23,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"gacdi-download {version_string()}")
     parser.add_argument("--manifest", required=True, help="GDC or PDC manifest (CSV or TSV).")
     parser.add_argument("--outdir", required=True, help="Directory in which to place downloaded files.")
+    parser.add_argument(
+        "--keep-compressed",
+        action="store_true",
+        help=(
+            "Leave gzipped text and XML payloads compressed. By default they are expanded "
+            "after checksum verification so that formats such as mzML and mzIdentML are "
+            "directly usable by downstream tools. Formats that are compressed by design "
+            "(BAM, BGZF VCF, tabix indexes) are never expanded either way."
+        ),
+    )
     parser.add_argument("--verbose", action="store_true")
     return parser
 
@@ -37,9 +47,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         source = detect_source(args.manifest)
         log.info("Detected %s manifest.", source.upper())
+        decompress = not args.keep_compressed
         if source == "gdc":
-            return download_gdc(args.manifest, args.outdir)
-        download_pdc(args.manifest, args.outdir)
+            return download_gdc(args.manifest, args.outdir, decompress=decompress)
+        download_pdc(args.manifest, args.outdir, decompress=decompress)
         return 0
     except ManifestError as exc:
         log.error("%s", exc)

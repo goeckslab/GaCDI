@@ -15,6 +15,7 @@ import requests
 
 from ..errors import DownloadError
 from ..net import DEFAULT_TIMEOUT, build_session
+from .decompress import expand_gzip, expanded_name, should_expand
 from .detect import normalize_header, read_header
 
 log = logging.getLogger("gacdi_manifest.download.pdc")
@@ -159,8 +160,15 @@ def download_pdc(
     *,
     session: requests.Session | None = None,
     timeout: float = DEFAULT_TIMEOUT,
+    decompress: bool = True,
 ) -> int:
-    """Download every PDC manifest row and return the number newly transferred."""
+    """Download every PDC manifest row and return the number newly transferred.
+
+    With ``decompress`` set, gzipped text and XML payloads are expanded once
+    their checksum has been verified, so ``.mzML.gz`` and ``.mzid.gz`` become
+    files Galaxy can type as ``mzml`` and ``mzid``. Integrity is always checked
+    against the compressed bytes the manifest describes, never the expansion.
+    """
     destination_dir = Path(outdir)
     destination_dir.mkdir(parents=True, exist_ok=True)
     http = session or build_session()
@@ -197,11 +205,28 @@ def download_pdc(
                 "Re-export a file manifest from the PDC portal."
             )
 
+        expand = decompress and should_expand(destination)
+
+        # A rerun cannot re-verify an expanded file against the manifest MD5,
+        # which describes the compressed bytes. Its presence is the resume
+        # signal instead: it can only exist if a prior run verified the archive
+        # before expanding it.
+        if expand and expanded_name(destination).is_file():
+            log.info(
+                "Skipping %s; it is already present, expanded, as %s.",
+                output_name,
+                expanded_name(destination).name,
+            )
+            continue
         if destination.is_file() and _md5(destination).lower() == expected_md5.lower():
             log.info("Skipping %s; it is already present with the expected MD5.", output_name)
+            if expand:
+                expand_gzip(destination)
             continue
         log.info("Downloading PDC file %s.", output_name)
         _download_one(http, url, destination, expected_md5, expected_size, timeout=timeout)
+        if expand:
+            expand_gzip(destination)
         downloaded += 1
 
     log.info("Downloaded %d PDC file(s) into %s.", downloaded, destination_dir)
