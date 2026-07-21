@@ -1,5 +1,11 @@
 <macros>
-    <token name="@TOOL_VERSION@">0.1.0</token>
+    <!-- Both GaCDI images are built from the gacdi_manifest package and tagged
+         with its __version__, so @TOOL_VERSION@ must equal that version in every
+         wrapper. Pinning a wrapper to an older tag orphans each release the
+         other wrapper triggers: the image is published but nothing references
+         it. test_version_contract.py enforces the equality. Use
+         @VERSION_SUFFIX@ for changes confined to this wrapper. -->
+    <token name="@TOOL_VERSION@">0.3.0</token>
     <token name="@VERSION_SUFFIX@">0</token>
     <token name="@PROFILE@">22.05</token>
 

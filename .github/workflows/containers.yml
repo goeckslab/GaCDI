@@ -65,6 +65,8 @@ jobs:
           build-args: |
             GACDI_BUILD=${{ github.sha }}
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-manifest:${{ steps.version.outputs.version }}
+      - name: Verify the image is publicly pullable
+        run: .github/scripts/assert-public-image.sh "${{ env.ORG }}" gacdi-manifest
 
   downloader:
     needs: changes
@@ -100,3 +102,5 @@ jobs:
           build-args: |
             GACDI_BUILD=${{ github.sha }}
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-downloader:${{ steps.version.outputs.version }}
+      - name: Verify the image is publicly pullable
+        run: .github/scripts/assert-public-image.sh "${{ env.ORG }}" gacdi-downloader

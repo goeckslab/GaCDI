@@ -1,6 +1,12 @@
 <macros>
-    <token name="@TOOL_VERSION@">0.2.0</token>
-    <token name="@VERSION_SUFFIX@">1</token>
+    <!-- @TOOL_VERSION@ tracks __version__ in gacdi_manifest/__init__.py, which is
+         also the tag containers.yml publishes both GaCDI images under. The two
+         must move together: the container requirement below resolves to that
+         tag, and CI refuses to overwrite a tag that already exists on quay.
+         test_version_contract.py enforces the equality. Bump the suffix alone
+         only for changes confined to this wrapper. -->
+    <token name="@TOOL_VERSION@">0.3.0</token>
+    <token name="@VERSION_SUFFIX@">0</token>
     <token name="@PROFILE@">25.1</token>
 
     <xml name="requirements">
@@ -37,7 +43,15 @@
          (.mzML, .mzXML, .pepXML). Every pattern is anchored, and the catch-all
          excludes the extensions claimed above it, so each discovered file
          matches exactly one rule: no file is dropped, and none is claimed
-         twice as a duplicate element identifier. -->
+         twice as a duplicate element identifier.
+
+         sort_by must name a group the patterns actually capture. Galaxy sorts
+         with operator.attrgetter(sort_by) over the match objects, and
+         JsonCollectedDatasetMatch.name returns None when the pattern has no
+         `name` group. Sorting two such matches raises TypeError comparing None
+         to None, which surfaces only as an errored output collection: the tool
+         itself has already exited 0, so its stderr is clean. These patterns
+         capture `designation`, so that is what they sort on. -->
     <token name="@TYPED_EXTENSIONS@">mzml|mzid|mzxml|mgf|raw|psm|tsv|txt|maf|sf|csv|pepxml|protxml</token>
 
     <xml name="discover" tokens="pattern,ext">
@@ -46,7 +60,7 @@
             ext="@EXT@"
             directory="downloads"
             recurse="true"
-            sort_by="name"
+            sort_by="designation"
         />
     </xml>
 
@@ -68,7 +82,7 @@
             ext="data"
             directory="downloads"
             recurse="true"
-            sort_by="name"
+            sort_by="designation"
         />
     </xml>
 
