@@ -19,7 +19,22 @@
     </inputs>
     <outputs>
         <collection name="commons_files" type="list" label="Files from manifest">
-            <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" />
+            <!-- Discovery must not derive the datatype from the file name. Data commons
+                 payloads carry extensions that are not registered Galaxy datatypes
+                 (.raw, .psm, .mzid.gz, .svs, .bam.bai, ...). Under __name_and_ext__ the
+                 trailing token is handed to the datatype registry verbatim, which yields
+                 elements Galaxy cannot resolve: the HDCA is stamped with an element_count
+                 while the elements themselves never become viewable, so the history shows
+                 "a list with N datasets" that opens empty. Keeping the whole file name as
+                 the element identifier and letting Galaxy sniff the datatype (falling back
+                 to `data`) keeps every element valid regardless of the commons' naming. -->
+            <discover_datasets
+                pattern="__name__"
+                directory="downloads"
+                recurse="true"
+                ext="auto"
+                sort_by="name"
+            />
         </collection>
     </outputs>
     <tests>
@@ -27,7 +42,7 @@
         <test expect_num_outputs="1">
             <param name="manifest_file" value="test-manifest.txt" ftype="txt" />
             <output_collection name="commons_files" type="list" count="1">
-                <element name="TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8">
+                <element name="TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8.svs">
                     <assert_contents>
                         <has_size value="43659635" />
                     </assert_contents>
@@ -70,7 +85,11 @@ rows.
 
 **Output**
 
-A collection containing every file listed in the manifest.
+A collection containing every file listed in the manifest. Each element is named
+with the complete file name as published by the commons, including its extension
+(for example ``06CPTAC_C_GBM_W_PNNL_20210830_B2S1_f08.mzML.gz``). Galaxy detects
+each element's datatype by inspecting the file; formats Galaxy does not recognize
+are kept as ``data`` and remain fully downloadable and usable as tool input.
     ]]></help>
     <expand macro="citations"/>
 </tool>
