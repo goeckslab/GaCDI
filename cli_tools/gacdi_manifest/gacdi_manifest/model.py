@@ -56,6 +56,15 @@ def disease_type(row: dict) -> str | None:
 # manifest/metadata can tell downstream workflow tools how to interpret each file.
 # Filename suffix wins (most reliable); GDC data_format is the fallback.
 _EXT_BY_SUFFIX = [
+    (".pep.xml", "pepxml"),
+    (".pepxml", "pepxml"),
+    (".mzml", "mzml"),
+    (".mzid", "mzid"),
+    (".mgf", "mgf"),
+    (".raw", "thermo.raw"),
+    (".fasta", "fasta"),
+    (".fa", "fasta"),
+    (".wiff", "data"),
     (".bam", "bam"),
     (".bai", "bai"),
     (".cram", "cram"),

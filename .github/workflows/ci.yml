@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, manifest_tool]
+    branches: [main, manifest_tool, PD_integration]
   pull_request:
 
 jobs:
@@ -36,4 +36,4 @@ jobs:
       - name: Install planemo
         run: python -m pip install planemo
       - name: Lint
-        run: planemo lint --skip citations tools/manifest_gdc
+        run: planemo lint tools/manifest_gdc tools/gacdi-downloader

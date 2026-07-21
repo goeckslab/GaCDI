@@ -1,0 +1,13 @@
+name: gacdi_downloader
+owner: paulocilasjr
+description: Download files from GDC or PDC manifests with automatic source detection.
+long_description: |
+  The GaCDI Data Commons Downloader accepts a file manifest exported by either the NCI Genomic
+  Data Commons (GDC) or Proteomic Data Commons (PDC), detects its source from the header, and
+  dispatches to gdc-client or a streaming PDC downloader. PDC transfers verify size and MD5;
+  controlled-access GDC transfers pass the user's token through a secure named pipe.
+homepage_url: https://github.com/paulocilasjr/GaCDI
+remote_repository_url: https://github.com/paulocilasjr/GaCDI/tree/main/tools/gacdi-downloader
+type: unrestricted
+categories:
+  - Data Source

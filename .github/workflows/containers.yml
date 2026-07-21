@@ -1,56 +1,62 @@
-name: Build and push manifest container
+name: Build and push GaCDI containers
 
-# Builds the manifest-builder image and pushes it to Quay whenever
-# cli_tools/gacdi_manifest changes on main, or manually. The image tag is
-# always taken from gacdi_manifest/__init__.py's __version__ (the single
-# source of truth for versioning; pyproject.toml's version is derived from it
-# via hatchling) and the job refuses to overwrite a tag that already exists on
-# Quay, so a forgotten version bump fails the build instead of silently
-# clobbering the published image. Requires repository secrets QUAY_USERNAME
-# and QUAY_TOKEN (Quay robot account).
 on:
   push:
     branches: ["main"]
     paths:
       - "cli_tools/gacdi_manifest/**"
+      - "tools/gacdi-downloader/**"
+      - ".github/workflows/containers.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: quay.io
-  # Must match the <container> namespace in tools/manifest_gdc/macros.xml.
   ORG: goeckslab
-  IMAGE: gacdi-manifest
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      manifest: ${{ steps.filter.outputs.manifest }}
+      downloader: ${{ steps.filter.outputs.downloader }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            manifest:
+              - 'cli_tools/gacdi_manifest/**'
+            downloader:
+              - 'cli_tools/gacdi_manifest/**'
+              - 'tools/gacdi-downloader/**'
+
   manifest:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.manifest == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Read version from package __init__.py
+      - name: Read version from package
         id: version
         run: |
           VERSION=$(grep -m1 '^__version__' cli_tools/gacdi_manifest/gacdi_manifest/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
       - uses: docker/setup-buildx-action@v3
-
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_TOKEN }}
-
       - name: Refuse to overwrite an existing tag
         run: |
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ steps.version.outputs.version }}"
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-manifest:${{ steps.version.outputs.version }}"
           if docker buildx imagetools inspect "$IMAGE_REF" >/dev/null 2>&1; then
             echo "Tag ${{ steps.version.outputs.version }} already exists at $IMAGE_REF." >&2
             echo "Bump __version__ in gacdi_manifest/__init__.py before pushing again." >&2
             exit 1
           fi
-
-      - name: Build & push
+      - name: Build and push manifest image
         uses: docker/build-push-action@v6
         with:
           context: cli_tools/gacdi_manifest
@@ -58,4 +64,39 @@ jobs:
           push: true
           build-args: |
             GACDI_BUILD=${{ github.sha }}
-          tags: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-manifest:${{ steps.version.outputs.version }}
+
+  downloader:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.downloader == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version from package
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^__version__' cli_tools/gacdi_manifest/gacdi_manifest/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+      - name: Refuse to overwrite an existing tag
+        run: |
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-downloader:${{ steps.version.outputs.version }}"
+          if docker buildx imagetools inspect "$IMAGE_REF" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.version.outputs.version }} already exists at $IMAGE_REF." >&2
+            echo "Bump __version__ in gacdi_manifest/__init__.py before pushing again." >&2
+            exit 1
+          fi
+      - name: Build and push downloader image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: tools/gacdi-downloader/dependencies/Dockerfile
+          push: true
+          build-args: |
+            GACDI_BUILD=${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.ORG }}/gacdi-downloader:${{ steps.version.outputs.version }}

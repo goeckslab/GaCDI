@@ -23,6 +23,7 @@ dev = [
 
 [project.scripts]
 gacdi-manifest = "gacdi_manifest.cli:main"
+gacdi-download = "gacdi_manifest.download.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/paulocilasjr/GaCDI"

@@ -55,23 +55,60 @@ repeatable custom facets (`--extra-filter "field=…;op=in|exclude;values=a,b"`)
 a raw GDC filters JSON (`--raw-filters`). The manifest is emitted in a deterministic
 (sorted) order for reproducible workflows.
 
-### End-to-end with the GaCDI GDC importer
+## Data Commons Downloader
 
-This tool is designed to feed directly into the **GaCDI GDC importer** (the
-manifest-download branch), so a single Galaxy workflow goes *filter → manifest →
-download → analysis*:
+The same package provides `gacdi-download`, the runtime behind the Galaxy **GaCDI
+Data Commons Downloader**. It accepts either a GDC TSV manifest or a PDC file
+manifest in CSV/TSV form and detects the source from the first non-blank header.
+
+```bash
+gacdi-download --manifest portal_manifest.tsv --outdir downloads
+```
+
+Detection is intentionally strict:
+
+- GDC requires `id`, `filename`, `md5`, and `size` (the portal also emits `state`).
+- PDC is recognized from multiple PDC-specific file-manifest columns such as
+  `File ID`, `File Name`, `PDC Study ID`, `Md5sum`, and `File Download Link`.
+- A header that matches both or neither format is rejected, and the error lists
+  the columns that were actually observed.
+
+For GDC, the command invokes `gdc-client`. If `GDC_AUTH_TOKEN` is non-empty it is
+passed through a mode-0600 FIFO, so the token is never written to a regular file
+or exposed in process arguments. For PDC, files are streamed from each `File
+Download Link` and checked against `File Size (in bytes)` and `Md5sum`. Existing
+files with the expected MD5 are skipped. Partial or corrupt downloads are removed.
+
+PDC download links expire after seven days, and PDC limits repeated downloads of
+one file from an IP address to 10 attempts per 24 hours. The downloader reports
+both conditions with actionable messages. Re-export an expired file manifest from
+PDC **Explore → Files → Export File Manifest**.
+
+Expected command exit codes are stable for Galaxy and workflow callers:
+
+| Code | Meaning |
+| ---: | --- |
+| 0 | Success (including a valid header-only manifest) |
+| 1 | Other expected manifest-package failure |
+| 2 | Invalid, unknown, or ambiguous input manifest |
+| 4 | Remote API failure while building a manifest |
+| 5 | GDC/PDC transfer or integrity-check failure |
+
+### End-to-end with the GaCDI downloader
+
+This tool is designed to feed directly into the **GaCDI Data Commons Downloader**,
+so a single Galaxy workflow goes *filter → manifest → download → analysis*:
 
 ```
-[GaCDI Manifest Builder]--gdc_manifest.txt-->[GaCDI GDC importer]--collection-->[analysis tools]
+[GaCDI Manifest Builder]--gdc_manifest.txt-->[GaCDI Data Commons Downloader]--collection-->[analysis tools]
                         \--metadata.tsv------------------------------(join)----/
 ```
 
 **Compatibility contract (locked by `tests/test_importer_contract.py`):**
 
-1. **Manifest → importer.** `gdc_manifest.txt` is a TSV whose header
-   (`id, filename, md5, size, state`) is a superset of what the importer's
-   `parse_gdc_manifest` requires (`id/filename/md5/size`); its datatype (`txt`)
-   is accepted by the importer's manifest input (`tabular,txt`). Rows with no
+1. **Manifest → downloader.** `gdc_manifest.txt` is a TSV whose header
+   (`id, filename, md5, size, state`) satisfies the downloader's detection rule;
+   its datatype (`txt`) is accepted by the manifest input (`txt,tabular,csv`). Rows with no
    `id` are dropped so the manifest and metadata stay row-aligned. The same file
    also works with `gdc-client download -m gdc_manifest.txt`.
 2. **Metadata ↔ history.** `metadata.tsv` leads with `file_id` and `filename` —
@@ -86,31 +123,31 @@ annotations (e.g. labels for an image ML model).
 
 ## Runtime environment
 
-The tool ships a pinned container (`quay.io/<org>/gacdi-manifest`) referenced from
-the wrapper, with Python + `requests` Conda requirements as a fallback. The Quay
-namespace (`paulocilasjr`) is a placeholder — update `@QUAY_ORG@` in
-`tools/manifest_gdc/macros.xml`, `containers/Dockerfile.manifest`, and the workflow
-before publishing.
+The manifest builder and downloader ship pinned containers in the `goeckslab`
+Quay namespace. The downloader image combines the Python package with the pinned
+GDC Data Transfer Tool 2.3 binary.
 
 ```bash
-docker build -f containers/Dockerfile.manifest -t gacdi-manifest:dev .
+docker build -f cli_tools/gacdi_manifest/Dockerfile -t gacdi-manifest:dev cli_tools/gacdi_manifest
 docker run --rm gacdi-manifest:dev gacdi-manifest gdc --help
+docker build -f tools/gacdi-downloader/dependencies/Dockerfile -t gacdi-downloader:dev .
+docker run --rm gacdi-downloader:dev gacdi-download --help
 ```
 
 ## Development
 
 ```bash
-python -m pip install -e '.[dev]'
+python -m pip install -e 'cli_tools/gacdi_manifest[dev]'
 pytest -q                            # mocked; no network
-planemo lint tools/manifest_gdc
+planemo lint tools/manifest_gdc tools/gacdi-downloader
 ```
 
 ## Roadmap
 
-- **Phase 1 (this branch):** GDC manifest builder + enrichment + join/QC.
-- **Phase 2:** CRDC GDC-style commons (PDC/IDC/ICDC/CDS/CTDC) reusing the filter/
-  join core.
-- **Phase 3:** GEO/SRA accession-list builders; on merge with the importer branch,
+- **Phase 1:** GDC manifest builder + enrichment + join/QC.
+- **Phase 2 (current):** Unified GDC/PDC manifest downloader.
+- **Phase 3:** Additional CRDC commons (IDC/ICDC/CDS/CTDC) reusing the filter/join core.
+- **Phase 4:** GEO/SRA accession-list builders; on merge with the importer branch,
   fold shared HTTP utilities into the `gacdi` package.
 
 ## License

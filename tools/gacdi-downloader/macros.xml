@@ -1,0 +1,37 @@
+<macros>
+    <token name="@TOOL_VERSION@">0.2.0</token>
+    <token name="@VERSION_SUFFIX@">0</token>
+    <token name="@PROFILE@">25.1</token>
+
+    <xml name="requirements">
+        <requirements>
+            <container type="docker">quay.io/goeckslab/gacdi-downloader:@TOOL_VERSION@</container>
+            <credentials
+                name="gdc_auth"
+                version="1.0"
+                optional="true"
+                label="GDC credentials"
+                description="Used only for controlled-access GDC datasets"
+            >
+                <secret
+                    name="gdc_token"
+                    inject_as_env="GDC_AUTH_TOKEN"
+                    label="Authorization token"
+                    description="Acquired from the GDC portal"
+                />
+            </credentials>
+        </requirements>
+    </xml>
+
+    <xml name="citations">
+        <citations>
+            <citation type="bibtex"><![CDATA[
+@misc{gacdi,
+  title  = {GaCDI: Galaxy Cancer Data Importers},
+  author = {GaCDI contributors},
+  url    = {https://github.com/paulocilasjr/GaCDI}
+}
+            ]]></citation>
+        </citations>
+    </xml>
+</macros>

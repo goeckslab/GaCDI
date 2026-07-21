@@ -1,0 +1,76 @@
+<tool id="gacdi_downloader" name="GaCDI Data Commons Downloader" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>acquire data from the NCI Genomic (GDC) or Proteomic (PDC) Data Commons</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code"><![CDATA[
+        mkdir -p ./downloads &&
+        gacdi-download --manifest '$manifest_file' --outdir ./downloads
+    ]]></command>
+    <inputs>
+        <param
+            name="manifest_file"
+            type="data"
+            format="txt,tabular,csv"
+            label="Manifest file from the GDC or PDC portal"
+            help="The source is detected automatically from the manifest header. PDC file manifests may be CSV or TSV; GDC manifests are TSV."
+        />
+    </inputs>
+    <outputs>
+        <collection name="commons_files" type="list" label="Files from manifest">
+            <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" />
+        </collection>
+    </outputs>
+    <tests>
+        <!-- Live GDC regression test retained from the original downloader. -->
+        <test expect_num_outputs="1">
+            <param name="manifest_file" value="test-manifest.txt" ftype="txt" />
+            <output_collection name="commons_files" type="list" count="1">
+                <element name="TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8">
+                    <assert_contents>
+                        <has_size value="43659635" />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <!-- PDC signed URLs expire after seven days and each live test consumes
+             the service's per-file quota. PDC behavior is therefore covered by
+             the offline package tests rather than an unstable committed URL. -->
+    </tests>
+    <help><![CDATA[
+**What it does**
+
+Downloads files listed in a manifest exported by either the NCI `Genomic Data
+Commons (GDC) <https://portal.gdc.cancer.gov/>`_ or `Proteomic Data Commons
+(PDC) <https://pdc.cancer.gov/>`_. The data commons is detected automatically
+from the manifest header; an unrecognized or ambiguous file fails with a message
+that identifies the observed and expected columns.
+
+**GDC manifests**
+
+Export a download manifest from the GDC portal. Open-access data needs no token.
+For controlled-access GDC data, store the token in Galaxy's optional **GDC
+credentials** entry. The token is injected only for a GDC job and is passed to
+``gdc-client`` through a mode-0600 named pipe, never a command-line argument or
+regular file.
+
+**PDC manifests**
+
+In PDC, open **Explore**, apply filters, select files on the **Files** tab, and
+choose **Export File Manifest** in CSV or TSV format. PDC authorization is
+encoded in each manifest's signed download link, so the GDC credential is not
+used. PDC links expire after seven days (168 hours); re-export the file manifest
+if the job reports an expired URL. PDC also limits repeated downloads of the
+same file from one IP address to 10 attempts in 24 hours.
+
+Downloaded PDC files are checked against both the size and MD5 checksum in the
+manifest. A rerun skips already-complete files and safely resumes the remaining
+rows.
+
+**Output**
+
+A collection containing every file listed in the manifest.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

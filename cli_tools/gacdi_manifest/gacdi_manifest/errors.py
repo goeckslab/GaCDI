@@ -15,7 +15,25 @@ class InputError(ManifestError):
     exit_code = 2
 
 
+class ManifestDetectionError(InputError):
+    """A download manifest cannot be identified safely."""
+
+
+class UnknownManifestError(ManifestDetectionError):
+    """A manifest does not match a supported data commons."""
+
+
+class AmbiguousManifestError(ManifestDetectionError):
+    """A manifest simultaneously matches more than one data commons."""
+
+
 class ApiError(ManifestError):
     """A remote API (GDC / cBioPortal) returned an error or unexpected payload."""
 
     exit_code = 4
+
+
+class DownloadError(ManifestError):
+    """A data transfer failed after the manifest was accepted."""
+
+    exit_code = 5

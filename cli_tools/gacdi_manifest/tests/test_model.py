@@ -39,6 +39,12 @@ def test_galaxy_ext_from_filename():
     assert galaxy_ext("calls.vcf.gz") == "vcf_bgzip"
     assert galaxy_ext("mutations.maf") == "tabular"
     assert galaxy_ext("reads_1.fastq.gz") == "fastqsanger.gz"
+    assert galaxy_ext("spectrum.mzML") == "mzml"
+    assert galaxy_ext("identifications.mzid") == "mzid"
+    assert galaxy_ext("search.mgf") == "mgf"
+    assert galaxy_ext("instrument.raw") == "thermo.raw"
+    assert galaxy_ext("proteins.fasta") == "fasta"
+    assert galaxy_ext("results.pep.xml") == "pepxml"
 
 
 def test_galaxy_ext_falls_back_to_format_then_generic():
