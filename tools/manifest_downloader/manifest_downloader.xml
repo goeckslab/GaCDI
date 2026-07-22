@@ -76,11 +76,12 @@ extra configuration.
 
 A GDC authorization token is only required to download **controlled-access**
 GDC datasets; open-access GDC data, and all PDC data, download without one.
-Tokens are obtained from the `GDC Data Portal <https://portal.gdc.cancer.gov/>`_,
-under your account profile.
+Tokens are downloaded from the `GDC Data Portal <https://portal.gdc.cancer.gov/>`_,
+under your account profile, as a text file (e.g. ``gdc-user-token.txt``).
 
 To use your authorization token, store it using Galaxy's credentials
-system, which keeps it encrypted and injects it securely at runtime. See
+system, which keeps it encrypted and injects it securely at runtime — paste
+the *contents* of the downloaded token file as the secret value. See
 `Galaxy's credentials documentation <https://galaxyproject.org/news/2026-01-12-tool-credentials-system/#how-to-use-it-for-galaxy-users>`_
 for instructions on adding your GDC token as a credential.
 
