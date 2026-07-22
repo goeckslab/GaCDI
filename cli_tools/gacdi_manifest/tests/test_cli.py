@@ -1,4 +1,4 @@
-from gacdi_manifest.cli import main
+from gacdi_manifest.manifest.cli import main
 
 
 def _args(tmp_path, *extra):
@@ -51,7 +51,7 @@ def test_full_build_with_annotation(tmp_path, gdc_api):
 def test_no_matches_writes_note(tmp_path, requests_mock):
     import json
 
-    from gacdi_manifest.gdc import FILES_ENDPOINT
+    from gacdi_manifest.manifest.gdc import FILES_ENDPOINT
 
     def callback(request, context):
         context.status_code = 200

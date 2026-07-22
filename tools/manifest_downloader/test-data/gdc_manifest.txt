@@ -1,0 +1,2 @@
+id	filename	md5	size	state
+888550f3-e65b-4eba-8c49-0767606c1d1f	TCGA-KIRP.6a47cd8d-e96b-44a4-a606-9b3447694233.ascat3.allelic_specific.seg.txt	8ab04b492980883480b2ae8493110b82	1578	released

@@ -6,7 +6,7 @@ keeps the wrapper trivial and lets us unit-test the exact query we send.
 
 from __future__ import annotations
 
-from .errors import InputError
+from ..errors import InputError
 
 # Guided flag -> GDC field. File-level fields are unprefixed on the files
 # endpoint; case-level fields use the ``cases.`` path.

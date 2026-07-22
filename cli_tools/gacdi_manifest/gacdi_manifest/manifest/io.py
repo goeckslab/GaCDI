@@ -6,7 +6,7 @@ import csv
 from collections import Counter
 from pathlib import Path
 
-from . import version_string
+from .. import version_string
 from .join import JoinReport
 from .model import FileRow
 

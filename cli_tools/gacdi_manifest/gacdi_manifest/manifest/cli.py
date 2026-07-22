@@ -7,11 +7,12 @@ import json
 import logging
 import sys
 
-from . import cbioportal, enrich, gdc, io, version_string
-from .errors import InputError, ManifestError
+from .. import version_string
+from ..errors import InputError, ManifestError
+from ..net import build_session
+from . import cbioportal, enrich, gdc, io
 from .filters import build_filters
 from .join import join
-from .net import build_session
 
 log = logging.getLogger("gacdi_manifest")
 

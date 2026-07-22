@@ -1,2 +1,0 @@
-id	filename	md5	size	state
-360367d5-4aa4-4c32-aaf3-7d8528aec089	TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8.svs	7c401ac82c290ff845f8262fa8e41798	43659635	released

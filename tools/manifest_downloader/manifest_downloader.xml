@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<tool
+    id="manifest_downloader"
+    name="GaCDI Manifest Downloader"
+    version="0.1.0"
+    hidden="false"
+    profile="25.1"
+>
+    <description>Download files listed in a GDC or PDC manifest</description>
+    <requirements>
+        <container type="docker">quay.io/goeckslab/gacdi-manifest:0.2.0</container>
+        <credentials
+            name="gdc_auth"
+            version="1.0"
+            optional="true"
+            label="GDC credentials"
+            description="Used when acquiring protected GDC datasets you are authorized to access (not needed for PDC)"
+        >
+            <secret
+                name="gdc_token"
+                inject_as_env="GDC_TOKEN"
+                label="Authorization token"
+                description="Acquired from the GDC portal"
+            />
+        </credentials>
+    </requirements>
+    <command><![CDATA[
+        gacdi-download --manifest "$manifest_file" --output-dir ./downloads
+    ]]></command>
+    <inputs>
+        <param
+            name="manifest_file"
+            type="data"
+            format="txt"
+            label="Manifest file (GDC or PDC — the commons is auto-detected)"
+        />
+    </inputs>
+    <outputs>
+        <collection name="downloaded_files" type="list" label="Downloaded files">
+            <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" />
+        </collection>
+    </outputs>
+    <tests>
+        <test expect_num_outputs="1">
+            <param name="manifest_file" value="gdc_manifest.txt" ftype="txt" />
+            <output_collection name="downloaded_files" type="list" count="1">
+                <element name="TCGA-KIRP.6a47cd8d-e96b-44a4-a606-9b3447694233.ascat3.allelic_specific.seg">
+                    <assert_contents>
+                        <has_size value="1578" />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+    </tests>
+    <help><![CDATA[
+**What it does**
+
+Downloads the files listed in a manifest exported from either the NCI
+`Genomic Data Commons (GDC) <https://portal.gdc.cancer.gov/>`_ or the
+`Proteomic Data Commons (PDC) <https://pdc.cancer.gov/>`_, using
+``gacdi-download``. The manifest's data commons is auto-detected from its
+header row, so the same tool handles either kind of manifest without any
+extra configuration.
+
+**Manifest**
+
+- **GDC**: build a file cart in the `GDC portal <https://portal.gdc.cancer.gov/>`_
+  and download the manifest (TSV), or generate one via the API
+  (``GET https://api.gdc.cancer.gov/v0/manifest/<uuid1>,<uuid2>,...``).
+- **PDC**: on the `PDC portal <https://pdc.cancer.gov/>`_ Explore page, filter
+  to the files you want and use "Export File Manifest" (CSV or TSV). PDC
+  manifests embed signed download links that expire after 7 days — re-export
+  if a run starts failing on files that previously worked.
+
+**Authorization token (optional, GDC only)**
+
+A GDC authorization token is only required to download **controlled-access**
+GDC datasets; open-access GDC data, and all PDC data, download without one.
+Tokens are obtained from the `GDC Data Portal <https://portal.gdc.cancer.gov/>`_,
+under your account profile.
+
+To use your authorization token, store it using Galaxy's credentials
+system, which keeps it encrypted and injects it securely at runtime. See
+`Galaxy's credentials documentation <https://galaxyproject.org/news/2026-01-12-tool-credentials-system/#how-to-use-it-for-galaxy-users>`_
+for instructions on adding your GDC token as a credential.
+
+**Output**
+
+A collection containing the files listed in the manifest, as downloaded from
+the corresponding data commons.
+    ]]></help>
+</tool>

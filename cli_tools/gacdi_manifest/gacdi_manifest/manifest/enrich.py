@@ -13,7 +13,7 @@ from pathlib import Path
 import requests
 
 from . import cbioportal
-from .errors import InputError
+from ..errors import InputError
 
 
 def read_annotation_tsv(path: str | Path, key_col: str) -> tuple[dict[str, dict], list[str]]:

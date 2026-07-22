@@ -2,9 +2,9 @@ import json
 
 import requests
 
-from gacdi_manifest import enrich, io
-from gacdi_manifest.join import JoinReport
-from gacdi_manifest.model import FileRow
+from gacdi_manifest.manifest import enrich, io
+from gacdi_manifest.manifest.join import JoinReport
+from gacdi_manifest.manifest.model import FileRow
 
 
 def test_write_manifest_strict_columns(tmp_path):
@@ -53,7 +53,7 @@ def test_read_annotation_tsv(tmp_path):
 
 
 def test_collect_merges_sources(tmp_path, requests_mock):
-    from gacdi_manifest import cbioportal
+    from gacdi_manifest.manifest import cbioportal
 
     study = "brca_tcga"
     requests_mock.get(
@@ -74,7 +74,7 @@ def test_collect_merges_sources(tmp_path, requests_mock):
 
 
 def test_collect_merges_multiple_studies(requests_mock):
-    from gacdi_manifest import cbioportal
+    from gacdi_manifest.manifest import cbioportal
 
     base = cbioportal.DEFAULT_BASE
 
