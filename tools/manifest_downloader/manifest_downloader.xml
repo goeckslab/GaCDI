@@ -2,30 +2,20 @@
 <tool
     id="manifest_downloader"
     name="GaCDI Manifest Downloader"
-    version="0.1.0"
+    version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@"
     hidden="false"
-    profile="25.1"
+    profile="@PROFILE@"
 >
     <description>Download files listed in a GDC or PDC manifest</description>
-    <requirements>
-        <container type="docker">quay.io/goeckslab/mcdi:0.3.0</container>
-        <credentials
-            name="gdc_auth"
-            version="1.0"
-            optional="true"
-            label="GDC credentials"
-            description="Used when acquiring protected GDC datasets you are authorized to access (not needed for PDC)"
-        >
-            <secret
-                name="gdc_token"
-                inject_as_env="GDC_TOKEN"
-                label="Authorization token"
-                description="Acquired from the GDC portal"
-            />
-        </credentials>
-    </requirements>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
     <command><![CDATA[
         mcdi download --manifest "$manifest_file" --output-dir ./downloads
+        #if $extract_archives
+            --extract
+        #end if
     ]]></command>
     <inputs>
         <param
@@ -33,6 +23,15 @@
             type="data"
             format="txt"
             label="Manifest file (GDC or PDC — the commons is auto-detected)"
+        />
+        <param
+            name="extract_archives"
+            type="boolean"
+            checked="false"
+            truevalue="true"
+            falsevalue=""
+            label="Extract archives after download"
+            help="Unpack recognized archives (.tar.gz, .tgz, .tar.bz2, .tar.xz, .tar, .zip, .gz, .bz2, .xz) in place, keeping only the extracted contents in the output collection. The archive itself moves aside rather than being deleted; it only reappears in the output if extraction fails."
         />
     </inputs>
     <outputs>
@@ -47,6 +46,30 @@
                 <element name="TCGA-KIRP.6a47cd8d-e96b-44a4-a606-9b3447694233.ascat3.allelic_specific.seg">
                     <assert_contents>
                         <has_size value="1578" />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <test expect_num_outputs="1">
+            <param name="manifest_file" value="gdc_manifest_archive.txt" ftype="txt" />
+            <param name="extract_archives" value="true" />
+            <output_collection name="downloaded_files" type="list" count="3">
+                <!-- Only the extracted contents - the archive itself moved aside
+                     to the sibling .mcdi-archives directory on success, so it
+                     doesn't show up here alongside what it was extracted into. -->
+                <element name="barcodes.tsv">
+                    <assert_contents>
+                        <has_size value="10169" />
+                    </assert_contents>
+                </element>
+                <element name="features.tsv">
+                    <assert_contents>
+                        <has_size value="522701" />
+                    </assert_contents>
+                </element>
+                <element name="matrix.mtx">
+                    <assert_contents>
+                        <has_size value="7985261" />
                     </assert_contents>
                 </element>
             </output_collection>
@@ -85,18 +108,33 @@ the *contents* of the downloaded token file as the secret value. See
 `Galaxy's credentials documentation <https://galaxyproject.org/news/2026-01-12-tool-credentials-system/#how-to-use-it-for-galaxy-users>`_
 for instructions on adding your GDC token as a credential.
 
+**Access check before downloading**
+
+Every file in the manifest is checked for accessibility before any download
+starts. If even one file is inaccessible (e.g. a controlled-access GDC file
+without a valid token), the whole run fails immediately, naming the file and
+why — instead of downloading most of a large manifest only to fail on the
+last file. A few failed files also get a couple of automatic retries with a
+short wait in between, since a retried Galaxy job starts from an empty
+working directory rather than resuming a failed one.
+
+**Extract archives after download**
+
+Some commons files are themselves archives (e.g. a ``.tar.gz`` bundle of
+slides). Turning this on unpacks any recognized archive
+(``.tar.gz``, ``.tgz``, ``.tar.bz2``, ``.tar.xz``, ``.tar``, ``.zip``,
+``.gz``, ``.bz2``, ``.xz``) right where it was downloaded, and the output
+collection then holds only the extracted contents — not a redundant copy of
+the packed archive alongside them. The archive itself isn't deleted, just
+moved out of the way; if extraction fails for a given file, that archive is
+left in place instead, so there's still something in the collection for it.
+Off by default.
+
 **Output**
 
 A collection containing the files listed in the manifest, as downloaded from
-the corresponding data commons.
+the corresponding data commons — or, for any file that was extracted, its
+extracted contents in place of the packed archive.
     ]]></help>
-    <citations>
-        <citation type="bibtex"><![CDATA[
-@misc{gacdi,
-  title  = {GaCDI: Galaxy Cancer Data Importers},
-  author = {GaCDI contributors},
-  url    = {https://github.com/goeckslab/GaCDI}
-}
-        ]]></citation>
-    </citations>
+    <expand macro="citations"/>
 </tool>

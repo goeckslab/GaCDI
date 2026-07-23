@@ -116,7 +116,42 @@ The data commons is auto-detected from the manifest's header row; pass
 | `--source {gdc,pdc}` | Skip auto-detection |
 | `--workers N` | Concurrent downloads (default: 4). PDC always runs at 1 to respect its rate limit, regardless of this flag. |
 | `--verify-checksum` | Verify each file's md5 against the manifest after download |
+| `-x`, `--extract` | Extract recognized archives (`.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`, `.tar`, `.zip`, `.gz`, `.bz2`, `.xz`) in place after download, keeping only the extracted contents at the manifest's output path. Off by default. |
 | `--token-file PATH` | File containing a GDC auth token, for controlled-access files |
+| `--retries N` | Extra attempts for files that fail transiently within this run (default: 2) |
+| `--retry-backoff SECONDS` | Wait before each retry pass, multiplied by the attempt number (default: 5.0) |
+
+Some commons files are themselves archives (e.g. a `.tar.gz` bundle of slides).
+`--extract` unpacks any recognized archive into the same directory it was
+downloaded into, right after downloading it. On success, the archive itself
+then moves to a sibling `<output-dir>.mcdi-archives/` directory (mirroring
+`--output-dir`'s layout) — it isn't deleted, just relocated out of the way,
+so `--output-dir` ends up holding only the extracted contents, not a
+redundant copy of the packed archive next to them. A tool that recursively
+collects everything under `--output-dir` (e.g. Galaxy's `discover_datasets`)
+then only ever sees the actual extracted files. If extraction fails, the
+archive is left where it was downloaded instead, so there's still something
+to show for it. The archive's presence in `.mcdi-archives/` also doubles as
+the idempotency marker, so reruns skip both re-downloading and
+re-extracting.
+
+**Pre-flight access check.** Before downloading anything, every file in the
+manifest is probed with a cheap ranged request (skipping ones already
+correctly present locally, and — for GDC — ones a single bulk lookup already
+confirms are open-access). If even one file turns out to be inaccessible
+(e.g. a controlled-access file without a valid token), the whole run aborts
+before downloading *any* file, naming exactly which one(s) failed and why —
+rather than downloading most of a large manifest only to fail on the last
+file. This always runs; there's no flag to skip it.
+
+**Retries.** Beyond the transport-level retries already built into every
+request, a failed file (connection errors, `429`/`5xx`, or a checksum
+mismatch — not permanent-looking failures like `401`/`403`/`404`) gets
+`--retries` more whole-batch attempts, waiting `--retry-backoff × attempt`
+seconds between passes. This matters most where nothing will manually rerun
+the command for you on a failure — e.g. a Galaxy job, where a retried job
+gets a fresh working directory, not the partial output of the failed attempt,
+so anything not resolved within the one invocation is lost.
 
 Controlled-access GDC files need an auth token, obtained by logging into the
 GDC portal and downloading your token. Provide it either via the `GDC_TOKEN`
@@ -136,7 +171,8 @@ Output layout:
 
 Re-running against the same manifest and output directory skips files already
 downloaded (verifying checksums too, if `--verify-checksum` is set), so
-interrupted runs can simply be re-run.
+interrupted runs can simply be re-run — the pre-flight check skips them too,
+so a rerun over mostly-complete output is cheap, not another full pass.
 
 ## Runtime environment
 
