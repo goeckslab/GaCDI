@@ -15,7 +15,7 @@ One command, two subcommands:
 
 import os
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 # Build identifier baked into the container image at build time (e.g. the git
 # commit SHA). Lets you confirm the exact code a run used, even when the version

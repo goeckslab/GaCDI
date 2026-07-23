@@ -1,30 +1,31 @@
 <macros>
     <token name="@TOOL_VERSION@">0.4.0</token>
     <token name="@VERSION_SUFFIX@">0</token>
-    <token name="@PROFILE@">22.05</token>
+    <token name="@PROFILE@">25.1</token>
 
     <!--
       The tool runs from the prebuilt Quay image, which bundles Python + the
-      mcdi package (providing the `mcdi` entrypoint, e.g. `mcdi manifest gdc`).
+      mcdi package (providing the `mcdi` entrypoint, e.g. `mcdi download`).
       There is no Conda package for it, so the container is the sole runtime.
     -->
     <xml name="requirements">
         <requirements>
             <container type="docker">quay.io/goeckslab/mcdi:@TOOL_VERSION@</container>
+            <credentials
+                name="gdc_auth"
+                version="1.0"
+                optional="true"
+                label="GDC credentials"
+                description="Used when acquiring protected GDC datasets you are authorized to access (not needed for PDC)"
+            >
+                <secret
+                    name="gdc_token"
+                    inject_as_env="GDC_TOKEN"
+                    label="Authorization token"
+                    description="Acquired from the GDC portal"
+                />
+            </credentials>
         </requirements>
-    </xml>
-
-    <!-- Permissive text sanitizer that still blocks shell-dangerous characters. -->
-    <xml name="safe_text">
-        <sanitizer invalid_char="_">
-            <valid initial="string.printable">
-                <remove value="&apos;"/>
-                <remove value="&quot;"/>
-                <remove value="`"/>
-                <remove value="$"/>
-                <remove value="\"/>
-            </valid>
-        </sanitizer>
     </xml>
 
     <xml name="citations">

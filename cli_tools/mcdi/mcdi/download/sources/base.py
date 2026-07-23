@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import requests
+
 # Delimiters tried, in order, when matching a manifest's header against each
 # source's schema.
 CANDIDATE_DELIMITERS = ("\t", ",")
@@ -50,6 +52,16 @@ class Source(ABC):
     def rate_limit(self) -> Optional["RateLimit"]:
         """Optional pacing/rate-limit policy applied to downloads from this source."""
         return None
+
+    def known_open(self, entries: list[FileEntry], session: requests.Session) -> set[str]:
+        """Best-effort ``file_id``s known accessible without a per-file network probe.
+
+        Lets a source short-circuit the pre-flight access check (see
+        ``download.engine.check_access``) for entries it can already vouch
+        for cheaply, e.g. via a single bulk metadata query. Default: none,
+        so every entry gets individually probed.
+        """
+        return set()
 
 
 @dataclass
