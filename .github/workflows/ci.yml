@@ -70,3 +70,11 @@ jobs:
 
       - name: Test
         run: planemo test --docker tools/manifest_downloader
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-downloader-test-report
+          path: tool_test_output.html
+          if-no-files-found: warn
