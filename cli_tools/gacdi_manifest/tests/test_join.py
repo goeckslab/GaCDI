@@ -1,5 +1,5 @@
-from gacdi_manifest.join import join, normalize_barcode
-from gacdi_manifest.model import FileRow
+from gacdi_manifest.manifest.join import join, normalize_barcode
+from gacdi_manifest.manifest.model import FileRow
 
 
 def _filerow(uuid, sample_bc):

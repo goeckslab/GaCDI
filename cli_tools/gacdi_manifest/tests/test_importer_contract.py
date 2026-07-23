@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import csv
 
-from gacdi_manifest.cli import main
-from gacdi_manifest.io import BASE_METADATA_COLUMNS, MANIFEST_COLUMNS
+from gacdi_manifest.manifest.cli import main
+from gacdi_manifest.manifest.io import BASE_METADATA_COLUMNS, MANIFEST_COLUMNS
 
 # --- mirrored from NIH_commons: gacdi/manifest.py and gacdi/history.py ---
 IMPORTER_REQUIRED_MANIFEST_COLUMNS = {"id", "filename", "md5", "size"}

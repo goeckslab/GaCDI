@@ -2,8 +2,8 @@ import json
 
 import requests
 
-from gacdi_manifest import cbioportal, gdc
-from gacdi_manifest.filters import build_filters
+from gacdi_manifest.manifest import cbioportal, gdc
+from gacdi_manifest.manifest.filters import build_filters
 
 
 def test_count_and_query(gdc_api):

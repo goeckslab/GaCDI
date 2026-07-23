@@ -2,7 +2,9 @@
 
 Galaxy Cancer Data Importers (GaCDI) provides Galaxy tools for importing cancer
 datasets from major public and controlled-access cancer data repositories into
-Galaxy histories.
+Galaxy histories. This package provides two commands: `gacdi-manifest` builds
+a manifest from filters, and `gacdi-download` downloads the files a GDC or PDC
+manifest lists (whether built here or exported from a portal).
 
 ## Manifest Builder (this branch)
 
@@ -83,6 +85,57 @@ download → analysis*:
 So: build the manifest here, run the importer to bring the samples into the
 history, then join `metadata.tsv` to give those history datasets their
 annotations (e.g. labels for an image ML model).
+
+## Downloading files from a manifest
+
+`gacdi-download` fetches the files listed in a GDC or PDC manifest — either
+one built by `gacdi-manifest gdc` above, or one exported directly from a
+portal:
+
+- **GDC**: build a file cart in the [GDC portal](https://portal.gdc.cancer.gov)
+  and download the manifest (TSV), or generate one via the API:
+  `GET https://api.gdc.cancer.gov/v0/manifest/<uuid1>,<uuid2>,...`
+- **PDC**: go to the [PDC portal](https://pdc.cancer.gov) Explore page, filter
+  to the files you want, and use "Export File Manifest" (CSV or TSV). Note that
+  the signed download links embedded in a PDC manifest expire after 7 days —
+  re-export if downloads start failing.
+
+```bash
+gacdi-download --manifest gdc_manifest.txt --output-dir downloads/
+gacdi-download --manifest pdc_manifest.csv --output-dir downloads/ --verify-checksum
+```
+
+The data commons is auto-detected from the manifest's header row; pass
+`--source {gdc,pdc}` to override.
+
+| Flag | Description |
+|---|---|
+| `--manifest PATH` | Path to the manifest (required) |
+| `--output-dir DIR` | Directory to download files into (required) |
+| `--source {gdc,pdc}` | Skip auto-detection |
+| `--workers N` | Concurrent downloads (default: 4). PDC always runs at 1 to respect its rate limit, regardless of this flag. |
+| `--verify-checksum` | Verify each file's md5 against the manifest after download |
+| `--token-file PATH` | File containing a GDC auth token, for controlled-access files |
+
+Controlled-access GDC files need an auth token, obtained by logging into the
+GDC portal and downloading your token. Provide it either via the `GDC_TOKEN`
+environment variable or `--token-file`:
+
+```bash
+export GDC_TOKEN="$(cat gdc-user-token.txt)"
+gacdi-download --manifest gdc_manifest.txt --output-dir downloads/
+```
+
+PDC downloads use pre-signed URLs embedded in the manifest and need no token.
+
+Output layout:
+
+- **GDC**: `downloads/gdc/<file_id>/<filename>`
+- **PDC**: `downloads/pdc/<study_id>/<study_version>/<data_category>/[<run_metadata_id>/]<file_type>/<filename>`
+
+Re-running against the same manifest and output directory skips files already
+downloaded (verifying checksums too, if `--verify-checksum` is set), so
+interrupted runs can simply be re-run.
 
 ## Runtime environment
 

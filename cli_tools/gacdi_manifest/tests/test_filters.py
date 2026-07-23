@@ -1,7 +1,7 @@
 import pytest
 
 from gacdi_manifest.errors import InputError
-from gacdi_manifest.filters import build_filters, parse_extra_filter
+from gacdi_manifest.manifest.filters import build_filters, parse_extra_filter
 
 
 def test_guided_filters_structure():
