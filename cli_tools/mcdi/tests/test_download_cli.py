@@ -1,6 +1,6 @@
 import hashlib
 
-from gacdi_manifest.download.cli import main
+from mcdi.cli import main
 
 FILE_A = b"hello world\n"
 FILE_B = b"second file\n"
@@ -19,6 +19,7 @@ def _write_gdc_manifest(path, rows):
 
 def test_missing_manifest_exits_input_error(tmp_path):
     rc = main([
+        "download",
         "--manifest", str(tmp_path / "nope.txt"),
         "--output-dir", str(tmp_path / "out"),
     ])
@@ -36,6 +37,7 @@ def test_full_download_with_checksum_verification(tmp_path, requests_mock):
 
     output_dir = tmp_path / "out"
     rc = main([
+        "download",
         "--manifest", str(manifest),
         "--output-dir", str(output_dir),
         "--verify-checksum",
@@ -50,6 +52,7 @@ def test_full_download_with_checksum_verification(tmp_path, requests_mock):
 
     # Re-running should skip already-downloaded, checksum-verified files.
     rc_again = main([
+        "download",
         "--manifest", str(manifest),
         "--output-dir", str(output_dir),
         "--verify-checksum",
@@ -64,6 +67,7 @@ def test_checksum_mismatch_reported_as_failure(tmp_path, requests_mock):
     requests_mock.get("https://api.gdc.cancer.gov/data/uuid1", content=FILE_A)
 
     rc = main([
+        "download",
         "--manifest", str(manifest),
         "--output-dir", str(tmp_path / "out"),
         "--verify-checksum",
@@ -80,6 +84,7 @@ def test_gdc_token_passed_as_header(tmp_path, requests_mock):
     token_file.write_text("secret-token\n")
 
     rc = main([
+        "download",
         "--manifest", str(manifest),
         "--output-dir", str(tmp_path / "out"),
         "--token-file", str(token_file),
@@ -93,6 +98,7 @@ def test_bad_token_file_exits_input_error(tmp_path):
     _write_gdc_manifest(manifest, [("uuid1", "a.txt", _md5(FILE_A), len(FILE_A))])
 
     rc = main([
+        "download",
         "--manifest", str(manifest),
         "--output-dir", str(tmp_path / "out"),
         "--token-file", str(tmp_path / "missing-token.txt"),

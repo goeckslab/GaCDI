@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gacdi-manifest"
+name = "mcdi"
 dynamic = ["version"]
-description = "GaCDI Manifest Builder + Downloader — filter-driven manifest + enriched metadata generation for NIH/NCI cancer data repositories, plus a GDC/PDC manifest downloader."
+description = "MCDI (Multi-Commons Data Importer) — filter-driven manifest + enriched metadata generation for NIH/NCI cancer data repositories, plus a GDC/PDC manifest downloader, via `mcdi manifest` and `mcdi download`."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
@@ -22,17 +22,16 @@ dev = [
 ]
 
 [project.scripts]
-gacdi-manifest = "gacdi_manifest.manifest.cli:main"
-gacdi-download = "gacdi_manifest.download.cli:main"
+mcdi = "mcdi.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/paulocilasjr/GaCDI"
+Homepage = "https://github.com/goeckslab/GaCDI"
 
 [tool.hatch.version]
-path = "gacdi_manifest/__init__.py"
+path = "mcdi/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["gacdi_manifest"]
+packages = ["mcdi"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from gacdi_manifest.manifest.gdc import FILES_ENDPOINT
+from mcdi.manifest.gdc import FILES_ENDPOINT
 
 SAMPLE_TSV = (
     "file_id\tfile_name\tmd5sum\tfile_size\tstate\tdata_format\t"

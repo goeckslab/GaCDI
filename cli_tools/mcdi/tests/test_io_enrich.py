@@ -2,9 +2,9 @@ import json
 
 import requests
 
-from gacdi_manifest.manifest import enrich, io
-from gacdi_manifest.manifest.join import JoinReport
-from gacdi_manifest.manifest.model import FileRow
+from mcdi.manifest import enrich, io
+from mcdi.manifest.join import JoinReport
+from mcdi.manifest.model import FileRow
 
 
 def test_write_manifest_strict_columns(tmp_path):
@@ -53,7 +53,7 @@ def test_read_annotation_tsv(tmp_path):
 
 
 def test_collect_merges_sources(tmp_path, requests_mock):
-    from gacdi_manifest.manifest import cbioportal
+    from mcdi.manifest import cbioportal
 
     study = "brca_tcga"
     requests_mock.get(
@@ -74,7 +74,7 @@ def test_collect_merges_sources(tmp_path, requests_mock):
 
 
 def test_collect_merges_multiple_studies(requests_mock):
-    from gacdi_manifest.manifest import cbioportal
+    from mcdi.manifest import cbioportal
 
     base = cbioportal.DEFAULT_BASE
 
@@ -112,14 +112,14 @@ def test_collect_merges_multiple_studies(requests_mock):
 def test_report_always_has_version_stamp(tmp_path):
     out = tmp_path / "r.tsv"
     io.write_report(out, database_total=0)
-    assert "gacdi_manifest_version" in out.read_text()
+    assert "mcdi_version" in out.read_text()
 
 
 def test_version_string_includes_build(monkeypatch):
-    import gacdi_manifest
+    import mcdi
 
-    monkeypatch.setattr(gacdi_manifest, "BUILD", "deadbee")
-    assert gacdi_manifest.version_string() == f"{gacdi_manifest.__version__}+deadbee"
+    monkeypatch.setattr(mcdi, "BUILD", "deadbee")
+    assert mcdi.version_string() == f"{mcdi.__version__}+deadbee"
 
-    monkeypatch.setattr(gacdi_manifest, "BUILD", "")
-    assert gacdi_manifest.version_string() == gacdi_manifest.__version__
+    monkeypatch.setattr(mcdi, "BUILD", "")
+    assert mcdi.version_string() == mcdi.__version__

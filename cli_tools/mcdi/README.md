@@ -2,9 +2,10 @@
 
 Galaxy Cancer Data Importers (GaCDI) provides Galaxy tools for importing cancer
 datasets from major public and controlled-access cancer data repositories into
-Galaxy histories. This package provides two commands: `gacdi-manifest` builds
-a manifest from filters, and `gacdi-download` downloads the files a GDC or PDC
-manifest lists (whether built here or exported from a portal).
+Galaxy histories. This package provides one command, `mcdi` (Multi-Commons Data
+Importer), with two subcommands: `mcdi manifest` builds a manifest from
+filters, and `mcdi download` downloads the files a GDC or PDC manifest lists
+(whether built here or exported from a portal).
 
 ## Manifest Builder (this branch)
 
@@ -33,11 +34,11 @@ table, which is joined back to the downloaded files by barcode afterwards.
 
 ```bash
 # Preview how many files match before building
-gacdi-manifest gdc --project TCGA-BRCA --data-type "Slide Image" --count-only \
+mcdi manifest gdc --project TCGA-BRCA --data-type "Slide Image" --count-only \
   --manifest-out m.txt --metadata-out meta.tsv --report-out report.tsv
 
 # Build a slide-image manifest enriched with cBioPortal subtypes + a custom table
-gacdi-manifest gdc \
+mcdi manifest gdc \
   --project TCGA-BRCA --data-type "Slide Image" --access open \
   --cbioportal-study brca_tcga_pan_can_atlas_2018 \
   --cbioportal-attrs SUBTYPE,ER_STATUS_BY_IHC,PR_STATUS_BY_IHC,HER2_STATUS \
@@ -46,7 +47,7 @@ gacdi-manifest gdc \
   --manifest-out gdc_manifest.txt --metadata-out metadata.tsv --report-out report.tsv
 
 # Discover a study's cBioPortal attribute ids
-gacdi-manifest gdc --cbioportal-study brca_tcga_pan_can_atlas_2018 \
+mcdi manifest gdc --cbioportal-study brca_tcga_pan_can_atlas_2018 \
   --cbioportal-list-attrs --manifest-out m.txt --metadata-out meta.tsv --report-out report.tsv
 ```
 
@@ -88,8 +89,8 @@ annotations (e.g. labels for an image ML model).
 
 ## Downloading files from a manifest
 
-`gacdi-download` fetches the files listed in a GDC or PDC manifest — either
-one built by `gacdi-manifest gdc` above, or one exported directly from a
+`mcdi download` fetches the files listed in a GDC or PDC manifest — either
+one built by `mcdi manifest gdc` above, or one exported directly from a
 portal:
 
 - **GDC**: build a file cart in the [GDC portal](https://portal.gdc.cancer.gov)
@@ -101,8 +102,8 @@ portal:
   re-export if downloads start failing.
 
 ```bash
-gacdi-download --manifest gdc_manifest.txt --output-dir downloads/
-gacdi-download --manifest pdc_manifest.csv --output-dir downloads/ --verify-checksum
+mcdi download --manifest gdc_manifest.txt --output-dir downloads/
+mcdi download --manifest pdc_manifest.csv --output-dir downloads/ --verify-checksum
 ```
 
 The data commons is auto-detected from the manifest's header row; pass
@@ -123,7 +124,7 @@ environment variable or `--token-file`:
 
 ```bash
 export GDC_TOKEN="$(cat gdc-user-token.txt)"
-gacdi-download --manifest gdc_manifest.txt --output-dir downloads/
+mcdi download --manifest gdc_manifest.txt --output-dir downloads/
 ```
 
 PDC downloads use pre-signed URLs embedded in the manifest and need no token.
@@ -139,15 +140,15 @@ interrupted runs can simply be re-run.
 
 ## Runtime environment
 
-The tool ships a pinned container (`quay.io/<org>/gacdi-manifest`) referenced from
+The tool ships a pinned container (`quay.io/<org>/mcdi`) referenced from
 the wrapper, with Python + `requests` Conda requirements as a fallback. The Quay
 namespace (`paulocilasjr`) is a placeholder — update `@QUAY_ORG@` in
 `tools/manifest_gdc/macros.xml`, `containers/Dockerfile.manifest`, and the workflow
 before publishing.
 
 ```bash
-docker build -f containers/Dockerfile.manifest -t gacdi-manifest:dev .
-docker run --rm gacdi-manifest:dev gacdi-manifest gdc --help
+docker build -f containers/Dockerfile.manifest -t mcdi:dev .
+docker run --rm mcdi:dev mcdi manifest gdc --help
 ```
 
 ## Development

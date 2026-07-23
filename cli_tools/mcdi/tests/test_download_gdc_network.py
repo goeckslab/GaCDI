@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from gacdi_manifest.download import engine
-from gacdi_manifest.download.sources import detect_source
-from gacdi_manifest.download.sources.gdc import GDCSource
+from mcdi.download import engine
+from mcdi.download.sources import detect_source
+from mcdi.download.sources.gdc import GDCSource
 
 # Small, open-access legacy GDC files (~1.5KB each) used purely to exercise
 # the download pipeline against the real API. Released open-access files and

@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from gacdi_manifest.download.sources import detect_source
-from gacdi_manifest.download.sources.gdc import GDCSource
-from gacdi_manifest.download.sources.pdc import PDCSource
-from gacdi_manifest.errors import InputError
+from mcdi.download.sources import detect_source
+from mcdi.download.sources.gdc import GDCSource
+from mcdi.download.sources.pdc import PDCSource
+from mcdi.errors import InputError
 
 GDC_HEADER = ["id", "filename", "md5", "size", "state"]
 PDC_HEADER = ["PDC Study ID", "PDC Study Version", "Data Category", "File Type",

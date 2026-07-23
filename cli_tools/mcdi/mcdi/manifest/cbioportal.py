@@ -21,7 +21,7 @@ import requests
 
 from ..errors import ApiError
 
-log = logging.getLogger("gacdi_manifest.manifest.cbioportal")
+log = logging.getLogger("mcdi.manifest.cbioportal")
 
 DEFAULT_BASE = "https://www.cbioportal.org/api"
 

@@ -1,26 +1,24 @@
-"""CLI: ``gacdi-download`` — download the files listed in a GDC or PDC manifest."""
+"""``mcdi download`` — download the files listed in a GDC or PDC manifest."""
 
 from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 
-from .. import version_string
-from ..errors import InputError, ManifestError
+from ..errors import InputError
 from . import config, engine
 from .sources import SOURCES, detect_source
 
-log = logging.getLogger("gacdi_manifest.download")
+log = logging.getLogger("mcdi.download")
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="gacdi-download",
-        description="Download files listed in a GDC or PDC manifest.",
+def add_arguments(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """Attach the ``download`` subcommand to ``subparsers``."""
+    parser = subparsers.add_parser(
+        "download",
+        help="Download files listed in a GDC or PDC manifest.",
     )
-    parser.add_argument("--version", action="version", version=f"gacdi-download {version_string()}")
     parser.add_argument("--manifest", required=True, type=Path, help="Path to the exported manifest file")
     parser.add_argument("--output-dir", required=True, type=Path, help="Directory to download files into")
     parser.add_argument(
@@ -39,10 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to a file containing a GDC auth token (overrides GDC_TOKEN env var)",
     )
     parser.add_argument("--verbose", action="store_true")
+    parser.set_defaults(func=run)
     return parser
 
 
-def _run(args: argparse.Namespace) -> int:
+def run(args: argparse.Namespace) -> int:
     if not args.manifest.is_file():
         raise InputError(f"manifest not found: {args.manifest}")
 
@@ -76,21 +75,3 @@ def _run(args: argparse.Namespace) -> int:
         f"{len(mismatches)} checksum mismatch(es)"
     )
     return 1 if failed or mismatches else 0
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
-    log.info("gacdi-download %s", version_string())
-    try:
-        return _run(args)
-    except ManifestError as exc:
-        log.error("%s", exc)
-        return exc.exit_code
-
-
-if __name__ == "__main__":  # pragma: no cover
-    sys.exit(main())

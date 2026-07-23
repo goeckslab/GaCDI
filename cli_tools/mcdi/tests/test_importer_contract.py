@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import csv
 
-from gacdi_manifest.manifest.cli import main
-from gacdi_manifest.manifest.io import BASE_METADATA_COLUMNS, MANIFEST_COLUMNS
+from mcdi.cli import main
+from mcdi.manifest.io import BASE_METADATA_COLUMNS, MANIFEST_COLUMNS
 
 # --- mirrored from NIH_commons: gacdi/manifest.py and gacdi/history.py ---
 IMPORTER_REQUIRED_MANIFEST_COLUMNS = {"id", "filename", "md5", "size"}
@@ -43,7 +43,7 @@ def test_manifest_columns_match_importer_requirements():
 
 def test_manifest_output_parses_in_importer(tmp_path, gdc_api):
     args = [
-        "gdc", "--project", "TCGA-BRCA", "--data-type", "Slide Image",
+        "manifest", "gdc", "--project", "TCGA-BRCA", "--data-type", "Slide Image",
         "--manifest-out", str(tmp_path / "m.txt"),
         "--metadata-out", str(tmp_path / "md.tsv"),
         "--report-out", str(tmp_path / "r.tsv"),
@@ -58,7 +58,7 @@ def test_manifest_output_parses_in_importer(tmp_path, gdc_api):
 def test_metadata_joins_to_importer_summary(tmp_path, gdc_api):
     """metadata leads with file_id/filename, so it joins the importer's summary."""
     main([
-        "gdc", "--project", "TCGA-BRCA", "--data-type", "Slide Image",
+        "manifest", "gdc", "--project", "TCGA-BRCA", "--data-type", "Slide Image",
         "--manifest-out", str(tmp_path / "m.txt"),
         "--metadata-out", str(tmp_path / "md.tsv"),
         "--report-out", str(tmp_path / "r.tsv"),

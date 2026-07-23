@@ -103,7 +103,7 @@ def write_report(
         rows.append((category, key, str(value)))
 
     # Version stamp: lets you confirm which build of the tool actually ran.
-    add("summary", "gacdi_manifest_version", version_string())
+    add("summary", "mcdi_version", version_string())
 
     # --- summary -------------------------------------------------------
     if database_total is not None:

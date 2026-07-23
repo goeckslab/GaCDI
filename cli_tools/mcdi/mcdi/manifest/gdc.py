@@ -16,7 +16,7 @@ import requests
 from ..errors import ApiError
 from .model import FileRow
 
-log = logging.getLogger("gacdi_manifest.manifest.gdc")
+log = logging.getLogger("mcdi.manifest.gdc")
 
 FILES_ENDPOINT = "https://api.gdc.cancer.gov/files"
 

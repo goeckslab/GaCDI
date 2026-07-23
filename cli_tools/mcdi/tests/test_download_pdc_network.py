@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 import requests
 
-from gacdi_manifest.download import engine
-from gacdi_manifest.download.sources import detect_source
-from gacdi_manifest.download.sources.pdc import PDCSource
+from mcdi.download import engine
+from mcdi.download.sources import detect_source
+from mcdi.download.sources.pdc import PDCSource
 
 GRAPHQL_URL = "https://pdc.cancer.gov/graphql"
 

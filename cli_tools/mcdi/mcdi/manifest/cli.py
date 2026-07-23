@@ -1,20 +1,18 @@
-"""CLI: ``gacdi-manifest gdc [...]`` — build GDC manifests + enriched metadata."""
+"""``mcdi manifest gdc [...]`` — build GDC manifests + enriched metadata."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import logging
-import sys
 
-from .. import version_string
-from ..errors import InputError, ManifestError
+from ..errors import InputError
 from ..net import build_session
 from . import cbioportal, enrich, gdc, io
 from .filters import build_filters
 from .join import join
 
-log = logging.getLogger("gacdi_manifest")
+log = logging.getLogger("mcdi.manifest")
 
 # Facets summarised in count-only previews.
 PREVIEW_FACETS = [
@@ -29,9 +27,9 @@ PREVIEW_FACETS = [
 ]
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="gacdi-manifest", description="GaCDI manifest builder.")
-    parser.add_argument("--version", action="version", version=f"gacdi-manifest {version_string()}")
+def add_arguments(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """Attach the ``manifest`` subcommand (and its ``gdc`` sub-subcommand) to ``subparsers``."""
+    parser = subparsers.add_parser("manifest", help="Build a filtered download manifest.")
     sub = parser.add_subparsers(dest="database", required=True, metavar="DATABASE")
 
     p = sub.add_parser("gdc", help="Build a manifest from the GDC files API.")
@@ -79,6 +77,8 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--metadata-out", default="metadata.tsv")
     out.add_argument("--report-out", default="report.tsv")
     p.add_argument("--verbose", action="store_true")
+
+    parser.set_defaults(func=run)
     return parser
 
 
@@ -205,22 +205,7 @@ def _run_gdc(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if getattr(args, "verbose", False) else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
-    # Emit the running version to the job log so it is visible in Galaxy's job info.
-    log.info("gacdi-manifest %s", version_string())
-    try:
-        if args.database == "gdc":
-            return _run_gdc(args)
-        raise InputError(f"Unknown database '{args.database}'.")
-    except ManifestError as exc:
-        log.error("%s", exc)
-        return exc.exit_code
-
-
-if __name__ == "__main__":  # pragma: no cover
-    sys.exit(main())
+def run(args: argparse.Namespace) -> int:
+    if args.database == "gdc":
+        return _run_gdc(args)
+    raise InputError(f"Unknown database '{args.database}'.")

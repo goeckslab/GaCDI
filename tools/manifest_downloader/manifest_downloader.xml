@@ -8,7 +8,7 @@
 >
     <description>Download files listed in a GDC or PDC manifest</description>
     <requirements>
-        <container type="docker">quay.io/goeckslab/gacdi-manifest:0.2.0</container>
+        <container type="docker">quay.io/goeckslab/mcdi:0.3.0</container>
         <credentials
             name="gdc_auth"
             version="1.0"
@@ -25,7 +25,7 @@
         </credentials>
     </requirements>
     <command><![CDATA[
-        gacdi-download --manifest "$manifest_file" --output-dir ./downloads
+        mcdi download --manifest "$manifest_file" --output-dir ./downloads
     ]]></command>
     <inputs>
         <param
@@ -58,7 +58,7 @@
 Downloads the files listed in a manifest exported from either the NCI
 `Genomic Data Commons (GDC) <https://portal.gdc.cancer.gov/>`_ or the
 `Proteomic Data Commons (PDC) <https://pdc.cancer.gov/>`_, using
-``gacdi-download``. The manifest's data commons is auto-detected from its
+``mcdi download``. The manifest's data commons is auto-detected from its
 header row, so the same tool handles either kind of manifest without any
 extra configuration.
 
@@ -90,4 +90,13 @@ for instructions on adding your GDC token as a credential.
 A collection containing the files listed in the manifest, as downloaded from
 the corresponding data commons.
     ]]></help>
+    <citations>
+        <citation type="bibtex"><![CDATA[
+@misc{gacdi,
+  title  = {GaCDI: Galaxy Cancer Data Importers},
+  author = {GaCDI contributors},
+  url    = {https://github.com/goeckslab/GaCDI}
+}
+        ]]></citation>
+    </citations>
 </tool>

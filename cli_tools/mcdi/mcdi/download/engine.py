@@ -24,7 +24,7 @@ def build_session() -> requests.Session:
         retries=RETRY_TOTAL,
         backoff=RETRY_BACKOFF,
         allowed_methods=frozenset({"GET", "HEAD"}),
-        user_agent=f"gacdi-manifest/{version_string()}",
+        user_agent=f"mcdi/{version_string()}",
     )
 
 
