@@ -1,25 +1,24 @@
-name: Build and push manifest container
+name: Build and push mcdi container
 
-# Builds the manifest-builder image and pushes it to Quay whenever
-# cli_tools/gacdi_manifest changes on main, or manually. The image tag is
-# always taken from gacdi_manifest/__init__.py's __version__ (the single
-# source of truth for versioning; pyproject.toml's version is derived from it
-# via hatchling) and the job refuses to overwrite a tag that already exists on
-# Quay, so a forgotten version bump fails the build instead of silently
-# clobbering the published image. Requires repository secrets QUAY_USERNAME
-# and QUAY_TOKEN (Quay robot account).
+# Builds the mcdi image and pushes it to Quay whenever cli_tools/mcdi changes
+# on main, or manually. The image tag is always taken from mcdi/__init__.py's
+# __version__ (the single source of truth for versioning; pyproject.toml's
+# version is derived from it via hatchling) and the job refuses to overwrite
+# a tag that already exists on Quay, so a forgotten version bump fails the
+# build instead of silently clobbering the published image. Requires
+# repository secrets QUAY_USERNAME and QUAY_TOKEN (Quay robot account).
 on:
   push:
     branches: ["main"]
     paths:
-      - "cli_tools/gacdi_manifest/**"
+      - "cli_tools/mcdi/**"
   workflow_dispatch:
 
 env:
   REGISTRY: quay.io
   # Must match the <container> namespace in tools/manifest_gdc/macros.xml.
   ORG: goeckslab
-  IMAGE: gacdi-manifest
+  IMAGE: mcdi
 
 jobs:
   manifest:
@@ -30,7 +29,7 @@ jobs:
       - name: Read version from package __init__.py
         id: version
         run: |
-          VERSION=$(grep -m1 '^__version__' cli_tools/gacdi_manifest/gacdi_manifest/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          VERSION=$(grep -m1 '^__version__' cli_tools/mcdi/mcdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
@@ -46,16 +45,16 @@ jobs:
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ steps.version.outputs.version }}"
           if docker buildx imagetools inspect "$IMAGE_REF" >/dev/null 2>&1; then
             echo "Tag ${{ steps.version.outputs.version }} already exists at $IMAGE_REF." >&2
-            echo "Bump __version__ in gacdi_manifest/__init__.py before pushing again." >&2
+            echo "Bump __version__ in mcdi/__init__.py before pushing again." >&2
             exit 1
           fi
 
       - name: Build & push
         uses: docker/build-push-action@v6
         with:
-          context: cli_tools/gacdi_manifest
-          file: cli_tools/gacdi_manifest/Dockerfile
+          context: cli_tools/mcdi
+          file: cli_tools/mcdi/Dockerfile
           push: true
           build-args: |
-            GACDI_BUILD=${{ github.sha }}
+            MCDI_BUILD=${{ github.sha }}
           tags: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ steps.version.outputs.version }}

@@ -1,4 +1,4 @@
-from gacdi_manifest.manifest.model import (
+from mcdi.manifest.model import (
     case_barcode,
     disease_type,
     galaxy_ext,

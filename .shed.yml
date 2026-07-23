@@ -7,8 +7,8 @@ long_description: |
   ready for gdc-client or the GaCDI GDC importer, together with an enriched metadata table that
   joins sample barcodes and clinical/molecular annotations (GDC fields, cBioPortal subtypes, and
   optional user-uploaded annotations) plus a match/precision report.
-homepage_url: https://github.com/paulocilasjr/GaCDI
-remote_repository_url: https://github.com/paulocilasjr/GaCDI
+homepage_url: https://github.com/goeckslab/GaCDI
+remote_repository_url: https://github.com/goeckslab/GaCDI
 type: unrestricted
 categories:
   - Data Source

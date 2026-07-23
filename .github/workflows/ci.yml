@@ -7,11 +7,11 @@ on:
 
 jobs:
   pytest:
-    name: Unit tests (gacdi_manifest)
+    name: Unit tests (mcdi)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: cli_tools/gacdi_manifest
+        working-directory: cli_tools/mcdi
     strategy:
       matrix:
         python-version: ["3.9", "3.11"]
@@ -36,9 +36,9 @@ jobs:
       - name: Install planemo
         run: python -m pip install planemo
       - name: Lint manifest_gdc
-        run: planemo lint --skip citations tools/manifest_gdc
+        run: planemo lint tools/manifest_gdc
       - name: Lint manifest_downloader
-        run: planemo lint --skip citations tools/manifest_downloader
+        run: planemo lint tools/manifest_downloader
 
   planemo-test-manifest-downloader:
     name: Test Galaxy tool (manifest_downloader)
@@ -54,19 +54,19 @@ jobs:
       - name: Read version from package __init__.py
         id: version
         run: |
-          VERSION=$(grep -m1 '^__version__' cli_tools/gacdi_manifest/gacdi_manifest/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          VERSION=$(grep -m1 '^__version__' cli_tools/mcdi/mcdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       # Built locally and never pushed: this only has to exist for this job's
       # own `planemo test --docker` step to resolve the tag manifest_downloader.xml
       # references. The real, published image is built and pushed by
       # containers.yml, only on merge to main.
-      - name: Build gacdi-manifest image (local only, not pushed)
+      - name: Build mcdi image (local only, not pushed)
         run: |
           docker build \
-            --build-arg GACDI_BUILD=${{ github.sha }} \
-            -t quay.io/goeckslab/gacdi-manifest:${{ steps.version.outputs.version }} \
-            cli_tools/gacdi_manifest
+            --build-arg MCDI_BUILD=${{ github.sha }} \
+            -t quay.io/goeckslab/mcdi:${{ steps.version.outputs.version }} \
+            cli_tools/mcdi
 
       - name: Test
         run: planemo test --docker tools/manifest_downloader

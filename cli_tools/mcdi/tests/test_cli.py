@@ -1,9 +1,9 @@
-from gacdi_manifest.manifest.cli import main
+from mcdi.cli import main
 
 
 def _args(tmp_path, *extra):
     return [
-        "gdc", "--project", "TCGA-BRCA", "--data-type", "Slide Image",
+        "manifest", "gdc", "--project", "TCGA-BRCA", "--data-type", "Slide Image",
         "--manifest-out", str(tmp_path / "m.txt"),
         "--metadata-out", str(tmp_path / "md.tsv"),
         "--report-out", str(tmp_path / "r.tsv"),
@@ -51,7 +51,7 @@ def test_full_build_with_annotation(tmp_path, gdc_api):
 def test_no_matches_writes_note(tmp_path, requests_mock):
     import json
 
-    from gacdi_manifest.manifest.gdc import FILES_ENDPOINT
+    from mcdi.manifest.gdc import FILES_ENDPOINT
 
     def callback(request, context):
         context.status_code = 200
@@ -70,7 +70,7 @@ def test_no_matches_writes_note(tmp_path, requests_mock):
 
 
 def test_no_filters_exit_code(tmp_path):
-    rc = main(["gdc", "--manifest-out", str(tmp_path / "m.txt"),
+    rc = main(["manifest", "gdc", "--manifest-out", str(tmp_path / "m.txt"),
                "--metadata-out", str(tmp_path / "md.tsv"),
                "--report-out", str(tmp_path / "r.tsv")])
     assert rc == 2

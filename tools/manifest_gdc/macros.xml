@@ -5,12 +5,12 @@
 
     <!--
       The tool runs from the prebuilt Quay image, which bundles Python + the
-      gacdi_manifest package (providing the `gacdi-manifest` entrypoint). There is
-      no Conda package for it, so the container is the sole runtime.
+      mcdi package (providing the `mcdi` entrypoint, e.g. `mcdi manifest gdc`).
+      There is no Conda package for it, so the container is the sole runtime.
     -->
     <xml name="requirements">
         <requirements>
-            <container type="docker">quay.io/goeckslab/gacdi-manifest:@TOOL_VERSION@</container>
+            <container type="docker">quay.io/goeckslab/mcdi:@TOOL_VERSION@</container>
         </requirements>
     </xml>
 
@@ -33,7 +33,7 @@
 @misc{gacdi,
   title  = {GaCDI: Galaxy Cancer Data Importers},
   author = {GaCDI contributors},
-  url    = {https://github.com/paulocilasjr/GaCDI}
+  url    = {https://github.com/goeckslab/GaCDI}
 }
             ]]></citation>
         </citations>
