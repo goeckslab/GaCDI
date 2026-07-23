@@ -87,17 +87,17 @@ Elements keep the file name published by the commons, so a collection element
 reads the same as the manifest row it came from. Formats that Galaxy models are
 typed on arrival rather than sniffed:
 
-==========================  ====================  ==========================================
-Published as                Galaxy datatype       Typical use
-==========================  ====================  ==========================================
-``.mzML`` / ``.mzML.gz``    ``mzml``              spectra for Comet, MS-GF+, OpenMS, MaxQuant
-``.mzXML``                  ``mzxml``             legacy open spectra
-``.mgf``                    ``mgf``               peak lists
-``.raw``                    ``thermo.raw``        Thermo native, input to msconvert
-``.mzid`` / ``.mzid.gz``    ``mzid``              peptide-spectrum match identifications
-``.pepXML`` / ``.protXML``  ``pepxml``/``protxml``  search and inference results
-``.psm``, ``.tsv``, ``.txt``  ``tabular``         PSM tables, clinical and metadata files
-==========================  ====================  ==========================================
+============================  ========================  ===========================================
+Published as                  Galaxy datatype           Typical use
+============================  ========================  ===========================================
+``.mzML`` / ``.mzML.gz``      ``mzml``                  spectra for Comet, MS-GF+, OpenMS, MaxQuant
+``.mzXML``                    ``mzxml``                 legacy open spectra
+``.mgf``                      ``mgf``                   peak lists
+``.raw``                      ``thermo.raw``            Thermo native, input to msconvert
+``.mzid`` / ``.mzid.gz``      ``mzid``                  peptide-spectrum match identifications
+``.pepXML`` / ``.protXML``    ``pepxml`` / ``protxml``  search and inference results
+``.psm``, ``.tsv``, ``.txt``  ``tabular``               PSM tables, clinical and metadata files
+============================  ========================  ===========================================
 
 Anything else is kept as ``data``: still downloadable, still usable, just not
 typed. No file listed in the manifest is ever dropped from the collection.
