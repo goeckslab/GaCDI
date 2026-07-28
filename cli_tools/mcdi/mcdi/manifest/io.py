@@ -34,7 +34,8 @@ def _top_counts(rows: list[dict], column: str, top: int = 15) -> tuple[list[tupl
     counter = Counter((r.get(column) or "(blank)") for r in rows)
     return counter.most_common(top), len(counter)
 
-# gdc-client / gacdi_gdc require exactly these columns, in this order.
+# gdc-client requires exactly these columns, in this order; mcdi download only
+# needs id/filename/md5/size present (any order, extra columns OK).
 MANIFEST_COLUMNS = ["id", "filename", "md5", "size", "state"]
 
 BASE_METADATA_COLUMNS = [
@@ -90,12 +91,8 @@ def write_report(
     max_examples: int = 25,
     extra: list[tuple[str, str, str]] | None = None,
 ) -> None:
-    """Write a meaningful tabular report: ``category  key  value`` rows.
-
-    Sections: a **summary** (match counts, download size, annotation coverage), a
-    **composition** breakdown of what the manifest contains, per-attribute
-    annotation **coverage**, GDC **facets** (preview mode), and a short capped list
-    of **unmatched** samples — instead of dumping every file UUID.
+    """Write a tabular report (``category  key  value`` rows): summary, composition,
+    annotation coverage, GDC facets (preview mode), and capped unmatched examples.
     """
     rows: list[tuple[str, str, str]] = []
 
@@ -125,7 +122,7 @@ def write_report(
         if report.collisions:
             add("summary", "annotation_key_collisions", len(report.collisions))
 
-    # --- composition: what am I about to download? ---------------------
+    # --- composition -----------------------------------------------------
     if merged_rows:
         for column, label in _COMPOSITION_COLUMNS:
             counts, distinct = _top_counts(merged_rows, column)

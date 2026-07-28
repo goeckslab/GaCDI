@@ -1,4 +1,4 @@
-FROM python:3.12-alpine
+FROM python:3.12-slim
 WORKDIR /app
 # build from the mcdi parent directory
 COPY . .

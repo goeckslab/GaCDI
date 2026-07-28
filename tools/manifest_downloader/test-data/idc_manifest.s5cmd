@@ -1,0 +1,4 @@
+# To download the files in this manifest, install s5cmd
+# (https://github.com/peak/s5cmd) and run:
+#   s5cmd --no-sign-request run idc_manifest.s5cmd
+cp s3://idc-open-data/28621ba9-1aca-4aab-a2a1-f6d2c3e2ab19/* .

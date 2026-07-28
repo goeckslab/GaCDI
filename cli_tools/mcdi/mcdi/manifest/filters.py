@@ -1,15 +1,11 @@
-"""Build a GDC ``filters`` object from guided flags, custom facets and raw JSON.
-
-Owning filter construction in Python (rather than the Galaxy Cheetah template)
-keeps the wrapper trivial and lets us unit-test the exact query we send.
-"""
+"""Build a GDC ``filters`` object from guided flags, custom facets and raw JSON."""
 
 from __future__ import annotations
 
 from ..errors import InputError
 
-# Guided flag -> GDC field. File-level fields are unprefixed on the files
-# endpoint; case-level fields use the ``cases.`` path.
+# Guided flag -> GDC field: unprefixed (file-level), ``cases.`` (case-level), or
+# ``analysis.`` (pipeline-level, e.g. workflow_type).
 GUIDED_FIELDS = {
     "project": "cases.project.project_id",
     "primary_site": "cases.primary_site",

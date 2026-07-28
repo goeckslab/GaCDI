@@ -1,4 +1,4 @@
-"""``mcdi download`` — download the files listed in a GDC or PDC manifest."""
+"""``mcdi download`` — download the files listed in a GDC, PDC, or IDC manifest."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def add_arguments(subparsers: argparse._SubParsersAction) -> argparse.ArgumentPa
     """Attach the ``download`` subcommand to ``subparsers``."""
     parser = subparsers.add_parser(
         "download",
-        help="Download files listed in a GDC or PDC manifest.",
+        help="Download files listed in a GDC, PDC, or IDC manifest.",
     )
     parser.add_argument("--manifest", required=True, type=Path, help="Path to the exported manifest file")
     parser.add_argument("--output-dir", required=True, type=Path, help="Directory to download files into")

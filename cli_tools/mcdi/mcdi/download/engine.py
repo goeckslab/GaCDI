@@ -71,9 +71,8 @@ def _dest_path(output_dir: Path, entry: FileEntry) -> Path:
 def _already_present(dest_path: Path, entry: FileEntry, verify: bool) -> tuple[bool, str]:
     """Return ``(satisfied, detail)``: whether ``dest_path`` already correctly holds ``entry``.
 
-    Shared by the download step and the pre-flight access check, so a file
-    that doesn't need (re-)downloading also doesn't need its remote
-    accessibility re-verified on every rerun.
+    Shared by the download step and the pre-flight access check, so a rerun
+    skips both re-downloading and re-verifying access for files already present.
     """
     if not (dest_path.exists() and dest_path.stat().st_size > 0):
         return False, ""
@@ -94,19 +93,10 @@ class DownloadResult:
 
 
 def _archived_path(output_dir: Path, entry: FileEntry) -> Path:
-    """Where ``entry``'s archive is relocated to once successfully extracted.
+    """Where ``entry``'s archive moves to after successful extraction: a sibling
+    ``<output_dir>.mcdi-archives/`` tree, mirroring ``entry.rel_dir``.
 
-    Mirrors ``entry.rel_dir``/filename under a sibling of ``output_dir``
-    (``<output_dir>.mcdi-archives/...``). Moving the archive there - instead
-    of leaving it in ``output_dir`` next to what it was extracted into -
-    means (a) a tool that recursively collects everything under
-    ``output_dir`` (e.g. a Galaxy ``discover_datasets`` with ``recurse``)
-    only ever sees the extracted contents, not a redundant copy of the
-    packed archive, and (b) the archive's presence here doubles as the
-    idempotency marker: extraction is already done for this entry iff a file
-    exists here. The archive isn't deleted, just moved aside - if extraction
-    fails, it's left in ``output_dir`` instead, so there's still something
-    to show for the download.
+    Its presence there doubles as the idempotency marker for "already extracted".
     """
     archive_root = output_dir.with_name(output_dir.name + ".mcdi-archives")
     return archive_root / entry.rel_dir / entry.filename
@@ -187,15 +177,12 @@ def _download_one(
     return result
 
 
-# HTTP statuses worth retrying at the batch level: rate limiting and
-# server-side/transient failures. Anything else (401/403/404/...) is a
-# permanent-looking failure that a delayed retry won't fix.
+# Transient: rate limiting + server errors. Not 401/403/404 (permanent).
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 
 def _is_retryable(result: DownloadResult) -> bool:
-    # A checksum mismatch could be transient transfer corruption, not
-    # necessarily a bad source file, so it's worth one more attempt too.
+    # A checksum mismatch could be transient transfer corruption, not a bad source file.
     if result.status == "checksum_mismatch":
         return True
     if result.status != "error":
@@ -206,8 +193,7 @@ def _is_retryable(result: DownloadResult) -> bool:
             return int(detail.split()[1]) in _RETRYABLE_STATUSES
         except (IndexError, ValueError):
             return False
-    # Any other "error" detail came from a requests.RequestException (timeout,
-    # connection reset, DNS hiccup, ...) - inherently transient.
+    # Any other "error" detail is a requests.RequestException (timeout, connection reset, ...) - transient.
     return True
 
 
@@ -224,8 +210,7 @@ def run(
     session = build_session()
     rate_limit = source.rate_limit()
     pacer = Pacer(rate_limit) if rate_limit else None
-    # PDC's per-IP rate limit applies regardless of thread count, so cap
-    # effective concurrency to 1 when a pacer is active to keep pacing honest.
+    # Cap concurrency to 1 when paced (e.g. PDC's per-IP limit), regardless of --workers.
     effective_workers = 1 if pacer else workers
 
     def _pass(batch: list[FileEntry]) -> list[DownloadResult]:
@@ -248,10 +233,7 @@ def run(
 
     results_by_id = {r.entry.file_id: r for r in _pass(entries)}
 
-    # Batch-level retry, on top of the per-request transport retry already
-    # inside `build_session()`. This matters most for non-interactive runs
-    # (e.g. a Galaxy job) where nothing will manually rerun the command on
-    # the same output directory if a few files fail transiently.
+    # Batch-level retry, on top of build_session()'s own transport-level retries.
     attempt = 0
     while attempt < retries:
         retry_entries = [r.entry for r in results_by_id.values() if _is_retryable(r)]
@@ -302,17 +284,8 @@ def check_access(
 ) -> list[AccessFailure]:
     """Probe every entry with a 1-byte ranged request; return the ones that fail.
 
-    Meant to run before any real download, so a manifest with one
-    inaccessible file (e.g. controlled-access without a valid token) is
-    caught in seconds instead of after downloading everything else first.
-    Two things narrow what actually needs a round trip: entries already
-    correctly present in ``output_dir`` (same check the download step uses -
-    including, if ``extract`` is set, entries already extracted and relocated
-    to ``output_dir``'s sibling archive directory - so a rerun over
-    mostly-complete output doesn't re-verify remote access for files it isn't
-    going to touch anyway) skip the check outright, and entries the source
-    can already vouch for as open (see ``Source.known_open``) skip the
-    per-file probe specifically.
+    Skips entries already present in ``output_dir`` (or already extracted, if
+    ``extract``) and ones ``Source.known_open`` vouches for.
     """
     session = build_session()
     rate_limit = source.rate_limit()

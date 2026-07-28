@@ -12,11 +12,20 @@ import requests
 # source's schema.
 CANDIDATE_DELIMITERS = ("\t", ",")
 
+# Leading raw lines read for Source.sniff_lines (past a manifest's leading comments).
+CONTENT_SNIFF_LINES = 20
+
 
 def read_header(path: Path, delimiter: str) -> list[str]:
     """Read and split a manifest's header row using the given delimiter."""
     with open(path, newline="") as f:
         return next(csv.reader(f, delimiter=delimiter), [])
+
+
+def read_lines(path: Path, limit: int = CONTENT_SNIFF_LINES) -> list[str]:
+    """Read up to ``limit`` leading raw lines, for ``Source.sniff_lines``."""
+    with open(path) as f:
+        return [line for line, _ in zip(f, range(limit))]
 
 
 @dataclass
@@ -41,6 +50,11 @@ class Source(ABC):
     def sniff(header_fields: list[str]) -> bool:
         """Return True if a manifest with these header fields belongs to this source."""
 
+    @staticmethod
+    def sniff_lines(lines: list[str]) -> bool:
+        """Hook for headerless formats ``sniff`` can't identify. Default: no match."""
+        return False
+
     @abstractmethod
     def parse_manifest(self, path: Path) -> list[FileEntry]:
         """Read a manifest file and return the files it lists."""
@@ -54,12 +68,8 @@ class Source(ABC):
         return None
 
     def known_open(self, entries: list[FileEntry], session: requests.Session) -> set[str]:
-        """Best-effort ``file_id``s known accessible without a per-file network probe.
-
-        Lets a source short-circuit the pre-flight access check (see
-        ``download.engine.check_access``) for entries it can already vouch
-        for cheaply, e.g. via a single bulk metadata query. Default: none,
-        so every entry gets individually probed.
+        """``file_id``s known accessible without a per-file probe (see
+        ``download.engine.check_access``). Default: none.
         """
         return set()
 

@@ -1,8 +1,6 @@
 """Barcode normalization and the manifest<->annotation join (with QC report).
 
-The join is *left* on the manifest: every selected file is kept, matched or not,
-so downloads are never silently dropped. A report records match counts, unmatched
-files, unused annotations and colliding keys.
+Left join on the manifest: every selected file is kept, matched or not.
 """
 
 from __future__ import annotations
