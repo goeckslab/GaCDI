@@ -1,9 +1,4 @@
-"""Minimal retrying HTTP session.
-
-TEMPORARY: mirrors ``gacdi.net`` from the NIH_commons branch. When the branches
-merge, replace this module with an import of ``gacdi.net.build_session`` to avoid
-duplication.
-"""
+"""Minimal retrying HTTP session."""
 
 from __future__ import annotations
 

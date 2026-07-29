@@ -5,14 +5,15 @@ build-backend = "hatchling.build"
 [project]
 name = "mcdi"
 dynamic = ["version"]
-description = "MCDI (Multi-Commons Data Importer) — filter-driven manifest + enriched metadata generation for NIH/NCI cancer data repositories, plus a GDC/PDC manifest downloader, via `mcdi manifest` and `mcdi download`."
+description = "MCDI (Multi-Commons Data Importer) — filter-driven manifest + enriched metadata generation for NIH/NCI cancer data repositories, plus a GDC/PDC/IDC manifest downloader, via `mcdi manifest` and `mcdi download`."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "GaCDI contributors" }]
-keywords = ["galaxy", "cancer", "gdc", "manifest", "cbioportal", "tcga", "nci"]
+keywords = ["galaxy", "cancer", "gdc", "manifest", "cbioportal", "tcga", "nci", "idc"]
 dependencies = [
     "requests>=2.28",
+    "idc-index>=0.12.0,<0.13.0",
 ]
 
 [project.optional-dependencies]

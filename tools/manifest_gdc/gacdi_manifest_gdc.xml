@@ -240,7 +240,6 @@
         <data name="report" format="tabular" label="${tool.name} on ${on_string}: report"/>
     </outputs>
     <tests>
-        <!-- Live preview: light GDC count/facet calls; run with `planemo test`. -->
         <test>
             <section name="core">
                 <param name="project" value="TCGA-BRCA"/>

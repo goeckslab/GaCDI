@@ -84,6 +84,20 @@ def test_detect_source_ignores_filename_extension(tmp_path):
     assert detect_source(pdc_manifest) == "pdc"
 
 
+def test_gdc_pdc_sniff_lines_default_false_and_unaffected_by_content_hook():
+    # GDC/PDC don't override sniff_lines - the default no-match behavior
+    # must hold regardless of what content is passed, so adding the hook for
+    # IDC can't change their detection.
+    assert not GDCSource.sniff_lines(["cp s3://idc-open-data/uuid1/* .\n"])
+    assert not PDCSource.sniff_lines(["cp s3://idc-open-data/uuid1/* .\n"])
+
+
+def test_detect_source_matches_headerless_manifest_via_sniff_lines(tmp_path):
+    manifest = tmp_path / "m.s5cmd"
+    manifest.write_text("# IDC portal export\ncp s3://idc-open-data/uuid1/* .\n")
+    assert detect_source(manifest) == "idc"
+
+
 def test_pdc_parse_manifest_ignores_filename_extension(tmp_path):
     manifest = tmp_path / "dataset_3.dat"
     manifest.write_text(

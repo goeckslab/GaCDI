@@ -54,11 +54,7 @@ class GDCSource(Source):
         return {"headers": headers}
 
     def known_open(self, entries: list[FileEntry], session: requests.Session) -> set[str]:
-        """Bulk-query GDC's ``access`` field for every id; no token needed for this.
-
-        This just narrows which entries the per-file pre-flight probe has to
-        touch — open files never need the individual round trip.
-        """
+        """Bulk-query GDC's ``access`` field for every id (no token needed)."""
         ids = [e.file_id for e in entries]
         if not ids:
             return set()

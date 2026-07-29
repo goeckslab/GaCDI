@@ -1,9 +1,8 @@
-"""Compatibility contract with the GaCDI GDC importer (NIH_commons branch).
+"""Compatibility contract between ``mcdi manifest gdc`` and ``mcdi download``.
 
-These tests encode what the importer's ``parse_gdc_manifest`` requires and how its
-history ``summary`` is keyed, so a change here that would break the download
-hand-off fails loudly. Kept self-contained (the importer package is not on this
-branch) by replicating the importer's exact expectations.
+These tests encode what ``mcdi download``'s GDC parsing (``parse_gdc_manifest``)
+requires and how a downloaded collection's datasets are keyed, so a change to the
+manifest/metadata builder that would break the download hand-off fails loudly.
 """
 
 from __future__ import annotations
@@ -13,14 +12,14 @@ import csv
 from mcdi.cli import main
 from mcdi.manifest.io import BASE_METADATA_COLUMNS, MANIFEST_COLUMNS
 
-# --- mirrored from NIH_commons: gacdi/manifest.py and gacdi/history.py ---
+# --- mirrors mcdi.download.sources.gdc.GDCSource's manifest expectations ---
 IMPORTER_REQUIRED_MANIFEST_COLUMNS = {"id", "filename", "md5", "size"}
 IMPORTER_SUMMARY_KEYS = {"file_id", "filename"}  # how downloaded files are identified
 IMPORTER_MANIFEST_INPUT_FORMATS = {"tabular", "txt"}
 
 
 def _simulate_importer_parse(path):
-    """Replica of gacdi.manifest.parse_gdc_manifest's contract."""
+    """Replica of mcdi.download.sources.gdc.GDCSource.parse_manifest's contract."""
     with open(path, newline="") as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         header = {c.strip().lower() for c in (reader.fieldnames or [])}

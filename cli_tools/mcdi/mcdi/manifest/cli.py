@@ -85,9 +85,7 @@ def add_arguments(subparsers: argparse._SubParsersAction) -> argparse.ArgumentPa
 def _run_gdc(args: argparse.Namespace) -> int:
     session = build_session()
 
-    # Normalise and sanity-check the cBioPortal study id(s) early, before the
-    # (expensive) GDC query, so a bad id fails fast with a clear message.
-    # One or more comma-separated ids are allowed (they get merged).
+    # Validate cBioPortal study id(s) before the (expensive) GDC query, so bad input fails fast.
     if args.cbioportal_study:
         studies = enrich.split_studies(args.cbioportal_study)
         bad = [s for s in studies if any(c.isspace() for c in s)]
@@ -144,17 +142,14 @@ def _run_gdc(args: argparse.Namespace) -> int:
 
     total_matching = gdc.count(session, filters)
     file_rows = gdc.query_files(session, filters, max_files=args.max_files, total=total_matching)
-    # Drop rows without a file id: the GaCDI GDC importer skips empty-id manifest
-    # rows, so excluding them keeps the manifest and metadata table aligned.
+    # Drop rows without a file id so the manifest and metadata stay row-aligned.
     dropped = [r for r in file_rows if not r.file_id]
     if dropped:
         log.warning("Dropped %d file(s) with no file id.", len(dropped))
     file_rows = [r for r in file_rows if r.file_id]
-    # Deterministic order so the manifest is reproducible across runs (workflows).
+    # Deterministic order.
     file_rows.sort(key=lambda r: r.file_id)
 
-    # No files matched: write empty, self-explanatory outputs and skip the
-    # (now pointless) annotation fetch/join.
     if not file_rows:
         io.write_manifest(args.manifest_out, [])
         io.write_metadata(args.metadata_out, [], [])

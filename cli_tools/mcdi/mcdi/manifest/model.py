@@ -52,9 +52,7 @@ def disease_type(row: dict) -> str | None:
     return _first_match(row, _DISEASE_TYPE) or row.get("cases.disease_type") or None
 
 
-# Best-effort mapping of a downloaded file to a Galaxy datatype extension, so the
-# manifest/metadata can tell downstream workflow tools how to interpret each file.
-# Filename suffix wins (most reliable); GDC data_format is the fallback.
+# Best-effort file -> Galaxy datatype extension. Filename suffix wins; data_format is the fallback.
 _EXT_BY_SUFFIX = [
     (".bam", "bam"),
     (".bai", "bai"),

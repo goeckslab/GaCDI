@@ -6,7 +6,7 @@
     hidden="false"
     profile="@PROFILE@"
 >
-    <description>Download files listed in a GDC or PDC manifest</description>
+    <description>Download files listed in a GDC, PDC, or IDC manifest</description>
     <macros>
         <import>macros.xml</import>
     </macros>
@@ -22,7 +22,7 @@
             name="manifest_file"
             type="data"
             format="txt"
-            label="Manifest file (GDC or PDC — the commons is auto-detected)"
+            label="Manifest file (GDC, PDC, or IDC — the commons is auto-detected)"
         />
         <param
             name="extract_archives"
@@ -54,9 +54,6 @@
             <param name="manifest_file" value="gdc_manifest_archive.txt" ftype="txt" />
             <param name="extract_archives" value="true" />
             <output_collection name="downloaded_files" type="list" count="3">
-                <!-- Only the extracted contents - the archive itself moved aside
-                     to the sibling .mcdi-archives directory on success, so it
-                     doesn't show up here alongside what it was extracted into. -->
                 <element name="barcodes.tsv">
                     <assert_contents>
                         <has_size value="10169" />
@@ -74,15 +71,56 @@
                 </element>
             </output_collection>
         </test>
+        <test expect_num_outputs="1">
+            <param name="manifest_file" value="idc_manifest.s5cmd" ftype="txt" />
+            <output_collection name="downloaded_files" type="list" count="3">
+                <element name="a08e162c-8c94-4f10-a4ca-4eda8370c688">
+                    <assert_contents>
+                        <has_size value="34942" />
+                    </assert_contents>
+                </element>
+                <element name="c745a842-833e-4c7a-9ade-8a2d09d71d31">
+                    <assert_contents>
+                        <has_size value="35002" />
+                    </assert_contents>
+                </element>
+                <element name="e7084d85-5266-4728-8df4-60d49515f973">
+                    <assert_contents>
+                        <has_size value="34960" />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <test expect_num_outputs="1">
+            <param name="manifest_file" value="idc_manifest.csv" ftype="txt" />
+            <output_collection name="downloaded_files" type="list" count="3">
+                <element name="a08e162c-8c94-4f10-a4ca-4eda8370c688">
+                    <assert_contents>
+                        <has_size value="34942" />
+                    </assert_contents>
+                </element>
+                <element name="c745a842-833e-4c7a-9ade-8a2d09d71d31">
+                    <assert_contents>
+                        <has_size value="35002" />
+                    </assert_contents>
+                </element>
+                <element name="e7084d85-5266-4728-8df4-60d49515f973">
+                    <assert_contents>
+                        <has_size value="34960" />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
     </tests>
     <help><![CDATA[
 **What it does**
 
-Downloads the files listed in a manifest exported from either the NCI
-`Genomic Data Commons (GDC) <https://portal.gdc.cancer.gov/>`_ or the
-`Proteomic Data Commons (PDC) <https://pdc.cancer.gov/>`_, using
-``mcdi download``. The manifest's data commons is auto-detected from its
-header row, so the same tool handles either kind of manifest without any
+Downloads the files listed in a manifest exported from the NCI
+`Genomic Data Commons (GDC) <https://portal.gdc.cancer.gov/>`_, the
+`Proteomic Data Commons (PDC) <https://pdc.cancer.gov/>`_, or the
+`Imaging Data Commons (IDC) <https://portal.imaging.datacommons.cancer.gov/>`_,
+using ``mcdi download``. The manifest's data commons is auto-detected from its
+content, so the same tool handles any of these manifest kinds without any
 extra configuration.
 
 **Manifest**
@@ -94,6 +132,14 @@ extra configuration.
   to the files you want and use "Export File Manifest" (CSV or TSV). PDC
   manifests embed signed download links that expire after 7 days — re-export
   if a run starts failing on files that previously worked.
+- **IDC**: build a cohort in the `IDC portal <https://portal.imaging.datacommons.cancer.gov/>`_
+  and export either manifest format it offers — the **s5cmd manifest**
+  (a ``.s5cmd`` script of ``cp s3://...`` lines, one per series) or the
+  **CSV/TSV cohort manifest** (a table keyed by ``SeriesInstanceUID``) — both
+  are accepted. A manifest entry is a whole DICOM series (many files), so the
+  actual file list is resolved at run time against the public
+  `idc-open-data` bucket; only AWS-hosted series are currently supported. No
+  token is needed — all IDC data is open access.
 
 **Authorization token (optional, GDC only)**
 

@@ -1,16 +1,8 @@
 """cBioPortal client: list clinical attributes and fetch per-sample values.
 
-Attribute ids (e.g. ``SUBTYPE`` for PAM50, ``ER_STATUS_BY_IHC``) are
-study-specific, so we do not hard-map them: the caller supplies the study id and
-an optional attribute list (or ``all``). Sample ids look like ``TCGA-XX-XXXX-01``.
-
-Clinical attributes live at two levels in cBioPortal:
-
-- SAMPLE level (e.g. ANEUPLOIDY_SCORE, CANCER_TYPE, MSI scores), and
-- PATIENT level (e.g. SUBTYPE/PAM50, ER_STATUS_BY_IHC, PR_STATUS_BY_IHC, HER2).
-
-We fetch **both** and merge the patient-level values onto every sample of that
-patient, so subtype/receptor-status columns are included.
+Attribute ids (e.g. ``SUBTYPE``, ``ER_STATUS_BY_IHC``) are study-specific, not
+hard-mapped. Clinical data exists at SAMPLE and PATIENT level; both are fetched
+and patient-level values are merged onto each of that patient's samples.
 """
 
 from __future__ import annotations
@@ -57,9 +49,7 @@ def fetch_clinical(
 ) -> tuple[dict[str, dict], list[str]]:
     """Return ``{sample_id: {attr: value}}`` and the ordered attribute columns.
 
-    Fetches SAMPLE- and PATIENT-level clinical data and merges the patient values
-    onto each of that patient's samples. If *attribute_ids* is given, only those
-    attributes are kept (order preserved).
+    If *attribute_ids* is given, only those attributes are kept (order preserved).
     """
     sample_records = _get_clinical(session, study_id, "SAMPLE", base)
     patient_records = _get_clinical(session, study_id, "PATIENT", base)

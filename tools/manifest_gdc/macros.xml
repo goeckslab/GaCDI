@@ -3,11 +3,6 @@
     <token name="@VERSION_SUFFIX@">0</token>
     <token name="@PROFILE@">22.05</token>
 
-    <!--
-      The tool runs from the prebuilt Quay image, which bundles Python + the
-      mcdi package (providing the `mcdi` entrypoint, e.g. `mcdi manifest gdc`).
-      There is no Conda package for it, so the container is the sole runtime.
-    -->
     <xml name="requirements">
         <requirements>
             <container type="docker">quay.io/goeckslab/mcdi:@TOOL_VERSION@</container>

@@ -60,6 +60,5 @@ class PDCSource(Source):
         return {}
 
     def rate_limit(self) -> RateLimit:
-        # Mirrors NCI's reference download script: pace requests to avoid
-        # tripping PDC's 24h per-IP restriction on repeated file downloads.
+        # Avoids tripping PDC's 24h per-IP restriction on repeated file downloads.
         return RateLimit(max_per_window=10, window_seconds=600, per_file_sleep_seconds=2)

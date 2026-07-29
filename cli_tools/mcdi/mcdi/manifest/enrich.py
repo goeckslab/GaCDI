@@ -1,8 +1,6 @@
 """Collect optional annotation sources into a single ``{sample_id: {attr: val}}``.
 
-Sources (any combination): cBioPortal sample clinical data and a user-uploaded
-annotation TSV. GDC-native fields (barcode, sample_type, project) are always
-carried through by the join and need no collection here.
+Sources: cBioPortal sample clinical data and a user-uploaded annotation TSV.
 """
 
 from __future__ import annotations
@@ -54,10 +52,7 @@ def collect(
 ) -> tuple[dict[str, dict], list[str]]:
     """Gather and merge all enrichment sources into one annotation table.
 
-    ``cbioportal_study`` may name several studies (comma-separated); they are
-    fetched and merged in order. Columns are the union across sources; for a given
-    sample/attribute the first source with a non-empty value wins (so list the
-    highest-priority study first).
+    Merged in order; first source with a non-empty value wins per attribute.
     """
     annotations: dict[str, dict] = {}
     columns: list[str] = []
