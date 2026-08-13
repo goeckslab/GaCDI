@@ -239,7 +239,7 @@ def test_partial_failure_writes_retry_manifest(tmp_path, requests_mock):
         "--output-dir", str(output_dir),
         "--retries", "0",
     ])
-    assert rc == 1
+    assert rc == 3  # partial success: some files missing, but not all
     assert (output_dir / "gdc" / "uuid1" / "a.txt").read_bytes() == FILE_A
 
     retry_manifest = tmp_path / "gdc_manifest.retry.txt"
@@ -297,7 +297,9 @@ def test_extract_failure_leaves_archive_in_place(tmp_path, requests_mock):
         "--output-dir", str(output_dir),
         "--extract",
     ])
-    assert rc == 1  # extraction errors are reported as a run failure
+    # extraction errors are reported as a partial failure - the download itself
+    # succeeded and the archive is still present, just not unpacked
+    assert rc == 3
 
     dest_dir = output_dir / "gdc" / "uuid1"
     # the archive was NOT moved aside, since extraction never succeeded

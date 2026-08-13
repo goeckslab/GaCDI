@@ -11,8 +11,14 @@
         <import>macros.xml</import>
     </macros>
     <expand macro="requirements"/>
+    <stdio>
+        <exit_code range="1" level="fatal" description="Download failed - no files were retrieved" />
+        <exit_code range="2" level="fatal" description="Invalid input" />
+        <exit_code range="3" level="warning" description="Some files could not be downloaded - see the retry manifest output" />
+        <exit_code range="4:" level="fatal" description="Unexpected error" />
+    </stdio>
     <command><![CDATA[
-        mcdi download --manifest "$manifest_file" --output-dir ./downloads
+        mcdi download --manifest "$manifest_file" --output-dir ./downloads --retry-manifest-out ./retry_manifest.txt
         #if $extract_archives
             --extract
         #end if
@@ -38,6 +44,9 @@
         <collection name="downloaded_files" type="list" label="Downloaded files">
             <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" />
         </collection>
+        <data name="retry_manifest" format="txt" label="${tool.name} on ${on_string}: files to retry">
+            <discover_datasets pattern="retry_manifest\.txt" directory="." visible="true" />
+        </data>
     </outputs>
     <tests>
         <test expect_num_outputs="1">
@@ -111,6 +120,11 @@
                 </element>
             </output_collection>
         </test>
+        <test expect_failure="true">
+            <!-- A well-formed but nonexistent GDC UUID fails the pre-flight access check for
+                 every file in the manifest, so nothing is salvageable - exit code 1, fatal. -->
+            <param name="manifest_file" value="gdc_manifest_bad_id.txt" ftype="txt" />
+        </test>
     </tests>
     <help><![CDATA[
 **What it does**
@@ -176,11 +190,26 @@ moved out of the way; if extraction fails for a given file, that archive is
 left in place instead, so there's still something in the collection for it.
 Off by default.
 
+**Partial success and retrying failed files**
+
+The pre-flight check above catches files that are inaccessible from the
+start, but a file can still fail *after* downloading begins (e.g. a
+transient network error or the source going down mid-run), even after this
+tool's automatic retries. When that happens with at least one other file
+still succeeding, the job completes (green, with a warning noted in its job
+info) rather than failing outright, and a second output dataset — **files to
+retry**, a manifest in the same format as the input — appears alongside the
+(partial) collection, containing just the files that didn't make it. Run
+this tool again using that dataset as the manifest input to retry only
+those; already-downloaded files are left alone either way. This second
+output only appears when a retry is actually needed.
+
 **Output**
 
 A collection containing the files listed in the manifest, as downloaded from
 the corresponding data commons — or, for any file that was extracted, its
-extracted contents in place of the packed archive.
+extracted contents in place of the packed archive. On a partial failure, a
+second **files to retry** dataset also appears (see above).
     ]]></help>
     <expand macro="citations"/>
 </tool>
