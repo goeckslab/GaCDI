@@ -44,9 +44,9 @@
         <collection name="downloaded_files" type="list" label="Downloaded files">
             <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" />
         </collection>
-        <data name="retry_manifest" format="txt" label="${tool.name} on ${on_string}: files to retry">
-            <discover_datasets pattern="retry_manifest\.txt" directory="." visible="true" />
-        </data>
+        <collection name="retry_manifest" type="list" label="${tool.name} on ${on_string}: files to retry">
+            <discover_datasets pattern="(?P&lt;designation&gt;retry_manifest)\.txt" directory="." format="txt" />
+        </collection>
     </outputs>
     <tests>
         <test expect_num_outputs="1">
@@ -197,19 +197,21 @@ start, but a file can still fail *after* downloading begins (e.g. a
 transient network error or the source going down mid-run), even after this
 tool's automatic retries. When that happens with at least one other file
 still succeeding, the job completes (green, with a warning noted in its job
-info) rather than failing outright, and a second output dataset — **files to
-retry**, a manifest in the same format as the input — appears alongside the
-(partial) collection, containing just the files that didn't make it. Run
-this tool again using that dataset as the manifest input to retry only
-those; already-downloaded files are left alone either way. This second
-output only appears when a retry is actually needed.
+info) rather than failing outright, and a second output collection — **files
+to retry**, holding a single manifest dataset in the same format as the
+input — appears alongside the (partial) downloads, listing just the files
+that didn't make it. Run this tool again using that dataset as the manifest
+input to retry only those; already-downloaded files are left alone either
+way. This second output is empty (no dataset inside it) unless a retry is
+actually needed.
 
 **Output**
 
 A collection containing the files listed in the manifest, as downloaded from
 the corresponding data commons — or, for any file that was extracted, its
 extracted contents in place of the packed archive. On a partial failure, a
-second **files to retry** dataset also appears (see above).
+second **files to retry** collection also appears, holding one manifest
+dataset (see above).
     ]]></help>
     <expand macro="citations"/>
 </tool>
