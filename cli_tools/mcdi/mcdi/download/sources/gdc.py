@@ -7,7 +7,7 @@ from typing import Optional
 
 import requests
 
-from .base import FileEntry, Source
+from .base import FileEntry, Source, write_csv_subset
 
 log = logging.getLogger("mcdi.download.gdc")
 
@@ -52,6 +52,13 @@ class GDCSource(Source):
         if self.token:
             headers["X-Auth-Token"] = self.token
         return {"headers": headers}
+
+    def write_subset_manifest(
+        self, original_manifest: Path, failed_file_ids: set[str], output_path: Path
+    ) -> None:
+        write_csv_subset(
+            original_manifest, output_path, delimiter="\t", key_column="id", keep_keys=failed_file_ids
+        )
 
     def known_open(self, entries: list[FileEntry], session: requests.Session) -> set[str]:
         """Bulk-query GDC's ``access`` field for every id (no token needed)."""

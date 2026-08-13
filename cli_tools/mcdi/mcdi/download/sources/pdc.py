@@ -13,7 +13,7 @@ import requests
 
 from ...errors import ApiError, InputError
 from ...net import build_session
-from .base import CANDIDATE_DELIMITERS, FileEntry, RateLimit, Source, read_header
+from .base import CANDIDATE_DELIMITERS, FileEntry, RateLimit, Source, read_header, write_csv_subset
 
 REQUIRED_HEADERS = {"PDC Study ID", "Data Category", "File Type", "File Download Link"}
 
@@ -104,11 +104,14 @@ class PDCSource(Source):
     def sniff(header_fields: list[str]) -> bool:
         return REQUIRED_HEADERS.issubset(set(header_fields))
 
-    def parse_manifest(self, path: Path) -> list[FileEntry]:
-        delimiter = next(
+    def _detect_delimiter(self, path: Path) -> str:
+        return next(
             (d for d in CANDIDATE_DELIMITERS if self.sniff(read_header(path, d))),
             CANDIDATE_DELIMITERS[-1],
         )
+
+    def parse_manifest(self, path: Path) -> list[FileEntry]:
+        delimiter = self._detect_delimiter(path)
         rows = []
         with open(path, newline="") as f:
             reader = csv.DictReader(f, delimiter=delimiter)
@@ -178,6 +181,15 @@ class PDCSource(Source):
 
     def request_kwargs(self, entry: FileEntry) -> dict:
         return {}
+
+    def write_subset_manifest(
+        self, original_manifest: Path, failed_file_ids: set[str], output_path: Path
+    ) -> None:
+        delimiter = self._detect_delimiter(original_manifest)
+        write_csv_subset(
+            original_manifest, output_path, delimiter=delimiter, key_column="File Name",
+            keep_keys=failed_file_ids,
+        )
 
     def rate_limit(self) -> RateLimit:
         # Avoids tripping PDC's 24h per-IP restriction on repeated file downloads.

@@ -113,4 +113,11 @@ def run(args: argparse.Namespace) -> int:
         f"\nDone: {len(results)} total, {len(failed)} error(s), "
         f"{len(mismatches)} checksum mismatch(es), {len(extract_failed)} extraction error(s)"
     )
+
+    retry_ids = {r.entry.file_id for r in failed + mismatches}
+    if 0 < len(retry_ids) < len(results):
+        retry_manifest = args.manifest.with_name(args.manifest.stem + ".retry" + args.manifest.suffix)
+        source.write_subset_manifest(args.manifest, retry_ids, retry_manifest)
+        print(f"Wrote retry manifest for {len(retry_ids)} failed file(s) to {retry_manifest}")
+
     return 1 if failed or mismatches or extract_failed else 0

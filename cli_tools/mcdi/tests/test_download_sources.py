@@ -115,6 +115,48 @@ def test_detect_source_matches_headerless_manifest_via_sniff_lines(tmp_path):
     assert detect_source(manifest) == "idc"
 
 
+def test_gdc_write_subset_manifest_keeps_only_failed_rows(tmp_path):
+    manifest = tmp_path / "gdc_manifest.txt"
+    manifest.write_text(
+        "id\tfilename\tmd5\tsize\tstate\n"
+        "uuid1\tA.svs\tmd5a\t100\treleased\n"
+        "uuid2\tB.svs\tmd5b\t200\treleased\n"
+    )
+    output = tmp_path / "gdc_manifest.retry.txt"
+    GDCSource().write_subset_manifest(manifest, {"uuid2"}, output)
+
+    lines = output.read_text().splitlines()
+    assert lines[0] == "id\tfilename\tmd5\tsize\tstate"
+    assert lines[1] == "uuid2\tB.svs\tmd5b\t200\treleased"
+    assert len(lines) == 2
+
+    # the subset manifest must itself be re-parseable
+    retried = GDCSource().parse_manifest(output)
+    assert [e.file_id for e in retried] == ["uuid2"]
+
+
+def test_pdc_write_subset_manifest_keeps_only_failed_rows(tmp_path):
+    url_a = _fresh_signed_url("https://example.cloudfront.net/a.raw")
+    url_b = _fresh_signed_url("https://example.cloudfront.net/b.raw")
+    manifest = tmp_path / "pdc_manifest.csv"
+    manifest.write_text(
+        "PDC Study ID,PDC Study Version,Data Category,File Type,File Name,"
+        "File MD5sum,File Download Link\n"
+        f"PDC000109,1,Raw Mass Spectra,raw,a.raw,md5a,{url_a}\n"
+        f"PDC000109,1,Raw Mass Spectra,raw,b.raw,md5b,{url_b}\n"
+    )
+    output = tmp_path / "pdc_manifest.retry.csv"
+    PDCSource(refresher=_UnusedRefresher()).write_subset_manifest(manifest, {"b.raw"}, output)
+
+    lines = output.read_text().splitlines()
+    assert len(lines) == 2
+    assert "b.raw" in lines[1]
+    assert "a.raw" not in lines[1]
+
+    retried = PDCSource(refresher=_UnusedRefresher()).parse_manifest(output)
+    assert [e.filename for e in retried] == ["b.raw"]
+
+
 def test_pdc_parse_manifest_ignores_filename_extension(tmp_path):
     manifest = tmp_path / "dataset_3.dat"
     manifest.write_text(
