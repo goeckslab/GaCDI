@@ -45,6 +45,28 @@ jobs:
             exit 1
           fi
 
+  check-tool-version-match:
+    name: Check Galaxy tool versions match mcdi package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify @TOOL_VERSION@ tokens match mcdi package version
+        run: |
+          MCDI_VERSION=$(grep -m1 '^__version__' cli_tools/mcdi/mcdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          echo "mcdi package version: $MCDI_VERSION"
+          fail=0
+          for f in tools/*/macros.xml; do
+            TOOL_VERSION=$(grep -oP '(?<=<token name="@TOOL_VERSION@">)[^<]+' "$f" || true)
+            [ -z "$TOOL_VERSION" ] && continue
+            echo "$f: @TOOL_VERSION@ = $TOOL_VERSION"
+            if [ "$TOOL_VERSION" != "$MCDI_VERSION" ]; then
+              echo "::error file=$f::@TOOL_VERSION@ ($TOOL_VERSION) does not match mcdi package version ($MCDI_VERSION)"
+              fail=1
+            fi
+          done
+          exit $fail
+
   pytest:
     name: Unit tests (mcdi)
     runs-on: ubuntu-latest
