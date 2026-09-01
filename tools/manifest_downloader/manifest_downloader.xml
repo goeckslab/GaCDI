@@ -18,10 +18,15 @@
         <exit_code range="4:" level="fatal" description="Unexpected error" />
     </stdio>
     <command><![CDATA[
+        set +e;
         mcdi download --manifest "$manifest_file" --output-dir ./downloads --retry-manifest-out ./retry_manifest.txt
         #if $extract_archives
             --extract
         #end if
+        ;
+        MCDI_EXIT=\$?;
+        if [ -f ./retry_manifest.txt ]; then echo '{"__unnamed_outputs": [{"destination": {"type": "hdas"}, "elements": [{"filename": "retry_manifest.txt", "ext": "txt", "name": "files to retry"}]}]}' > galaxy.json; fi;
+        exit \$MCDI_EXIT;
     ]]></command>
     <inputs>
         <param
@@ -43,9 +48,6 @@
     <outputs>
         <collection name="downloaded_files" type="list" label="Downloaded files">
             <discover_datasets pattern="__name_and_ext__" directory="downloads" recurse="true" />
-        </collection>
-        <collection name="retry_manifest" type="list" label="${tool.name} on ${on_string}: files to retry">
-            <discover_datasets pattern="(?P&lt;designation&gt;retry_manifest)\.txt" directory="." format="txt" />
         </collection>
     </outputs>
     <tests>
@@ -197,21 +199,20 @@ start, but a file can still fail *after* downloading begins (e.g. a
 transient network error or the source going down mid-run), even after this
 tool's automatic retries. When that happens with at least one other file
 still succeeding, the job completes (green, with a warning noted in its job
-info) rather than failing outright, and a second output collection — **files
-to retry**, holding a single manifest dataset in the same format as the
-input — appears alongside the (partial) downloads, listing just the files
-that didn't make it. Run this tool again using that dataset as the manifest
-input to retry only those; already-downloaded files are left alone either
-way. This second output is empty (no dataset inside it) unless a retry is
-actually needed.
+info) rather than failing outright, and a second output dataset — **files to
+retry**, a manifest in the same format as the input — appears alongside the
+(partial) downloads, listing just the files that didn't make it. Run this
+tool again using that dataset as the manifest input to retry only those;
+already-downloaded files are left alone either way. This second output only
+appears in your history when a retry is actually needed — it's absent
+entirely on a fully successful run.
 
 **Output**
 
 A collection containing the files listed in the manifest, as downloaded from
 the corresponding data commons — or, for any file that was extracted, its
 extracted contents in place of the packed archive. On a partial failure, a
-second **files to retry** collection also appears, holding one manifest
-dataset (see above).
+second **files to retry** dataset also appears (see above).
     ]]></help>
     <expand macro="citations"/>
 </tool>
