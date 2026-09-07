@@ -1,17 +1,41 @@
-# GaCDI — Galaxy Cancer Data Importers
+# mcdi — Multi-Commons Data Importer
 
-Galaxy Cancer Data Importers (GaCDI) provides Galaxy tools for importing cancer
-datasets from major public and controlled-access cancer data repositories into
-Galaxy histories. This package provides one command, `mcdi` (Multi-Commons Data
-Importer), with two subcommands: `mcdi manifest` builds a manifest from
-filters, and `mcdi download` downloads the files a GDC, PDC, or IDC manifest
-lists (whether built here or exported from a portal).
+`mcdi` is a command-line tool for importing cancer datasets from major public
+and controlled-access cancer data repositories: the NCI Genomic Data Commons
+([GDC](https://portal.gdc.cancer.gov)), Proteomic Data Commons
+([PDC](https://pdc.cancer.gov)), and Imaging Data Commons
+([IDC](https://portal.imaging.datacommons.cancer.gov)). It has two
+subcommands: `mcdi manifest` builds a manifest from filters, and `mcdi
+download` downloads the files a GDC, PDC, or IDC manifest lists.
+
+Manifests are usually exported directly from one of those three portals;
+`mcdi download` accepts any of their native export formats as-is. `mcdi
+manifest gdc` additionally builds a GDC manifest — plus enriched metadata —
+straight from filters, as an alternative to the portal UI.
+
+`mcdi` also powers the GaCDI (Galaxy Cancer Data Importers) Galaxy tools
+published in this repo (`manifest_gdc`, `manifest_downloader`) — see their
+own help text for Galaxy-specific usage.
+
+## Installation
+
+```bash
+pip install cli_tools/mcdi
+```
+
+Or run the published container directly, without installing anything locally
+(the same image also backs the repo's Galaxy tools):
+
+```bash
+docker run --rm quay.io/goeckslab/mcdi:<version> mcdi manifest gdc --help
+docker run --rm quay.io/goeckslab/mcdi:<version> mcdi download --help
+```
 
 ## Manifest Builder
 
-`gacdi_manifest_gdc` generates the **manifests** that drive the importers. Instead
-of downloading a whole dataset, the user filters the NCI
-[Genomic Data Commons](https://gdc.cancer.gov/) and gets exactly the files they
+`mcdi manifest gdc` builds the **manifests** that drive the downloader.
+Instead of downloading a whole dataset, you filter the NCI
+[Genomic Data Commons](https://gdc.cancer.gov/) and get exactly the files you
 want, described in two complementary outputs:
 
 - **GDC manifest** — strict `id / filename / md5 / size / state`, consumable
@@ -60,26 +84,24 @@ a raw GDC filters JSON (`--raw-filters`). The manifest is emitted in a determini
 
 ### Feeding the manifest into `mcdi download`
 
-A single Galaxy workflow goes *filter → manifest → download → analysis*: build
-the manifest here, run **GaCDI Manifest Downloader** (`mcdi download`, below)
-to bring the files into the history, then join `metadata.tsv` to those history
-datasets to attach clinical labels, the `galaxy_ext` datatype hint, and subtype
-annotations to each sample.
+The usual flow is *filter → manifest → download → analysis*: build the
+manifest here, run `mcdi download` (below) to fetch the files, then join
+`metadata.tsv` to the downloaded files to attach clinical labels, the
+`galaxy_ext` datatype hint, and subtype annotations to each sample. (This
+hand-off is also what powers the paired GaCDI Galaxy tools.)
 
-This works because of a contract between the two tools (locked by
-`tests/test_importer_contract.py`):
+This works because of a contract between the two tools:
 
 1. **Manifest → downloader.** `gdc_manifest.txt` is a TSV whose header
    (`id, filename, md5, size, state`) is a superset of what `mcdi download`'s
-   GDC parsing requires (`id/filename/md5/size`); its datatype (`txt`) is
-   accepted by the downloader's manifest input (`tabular,txt`). Rows with no
-   `id` are dropped so the manifest and metadata stay row-aligned. The same
-   file also works with `gdc-client download -m gdc_manifest.txt`.
-2. **Metadata ↔ history.** `metadata.tsv` leads with `file_id` and `filename` —
-   the same keys the downloaded collection's datasets are named/identified by
-   — so after download you join the metadata to the collection on `file_id`
-   (stable UUID) or `filename` to attach clinical labels, the `galaxy_ext`
-   datatype hint, and subtype annotations to each sample in the history.
+   GDC parsing requires (`id/filename/md5/size`). Rows with no `id` are
+   dropped so the manifest and metadata stay row-aligned. The same file also
+   works with `gdc-client download -m gdc_manifest.txt`.
+2. **Metadata ↔ downloaded files.** `metadata.tsv` leads with `file_id` and
+   `filename` — the same identifiers `mcdi download` organizes its output by
+   (see "Output layout" below) — so after download you join the metadata on
+   `file_id` (stable UUID) or `filename` to attach clinical labels, the
+   `galaxy_ext` datatype hint, and subtype annotations to each sample.
 
 ## Downloading files from a manifest
 
@@ -124,6 +146,7 @@ The data commons is auto-detected from the manifest's content; pass
 | `--token-file PATH` | File containing a GDC auth token, for controlled-access files |
 | `--retries N` | Extra attempts for files that fail transiently within this run (default: 2) |
 | `--retry-backoff SECONDS` | Wait before each retry pass, multiplied by the attempt number (default: 5.0) |
+| `--retry-manifest-out PATH` | Where to write the retry manifest on a partial failure (default: `<manifest>.retry<ext>`, next to `--manifest`) |
 
 Some commons files are themselves archives (e.g. a `.tar.gz` bundle of slides).
 `--extract` unpacks any recognized archive into the same directory it was
@@ -131,9 +154,9 @@ downloaded into, right after downloading it. On success, the archive itself
 then moves to a sibling `<output-dir>.mcdi-archives/` directory (mirroring
 `--output-dir`'s layout) — it isn't deleted, just relocated out of the way,
 so `--output-dir` ends up holding only the extracted contents, not a
-redundant copy of the packed archive next to them. A tool that recursively
-collects everything under `--output-dir` (e.g. Galaxy's `discover_datasets`)
-then only ever sees the actual extracted files. If extraction fails, the
+redundant copy of the packed archive next to them. Anything that
+recursively scans `--output-dir` afterward only ever sees the actual
+extracted files. If extraction fails, the
 archive is left where it was downloaded instead, so there's still something
 to show for it. The archive's presence in `.mcdi-archives/` also doubles as
 the idempotency marker, so reruns skip both re-downloading and
@@ -152,10 +175,16 @@ file. This always runs; there's no flag to skip it.
 request, a failed file (connection errors, `429`/`5xx`, or a checksum
 mismatch — not permanent-looking failures like `401`/`403`/`404`) gets
 `--retries` more whole-batch attempts, waiting `--retry-backoff × attempt`
-seconds between passes. This matters most where nothing will manually rerun
-the command for you on a failure — e.g. a Galaxy job, where a retried job
-gets a fresh working directory, not the partial output of the failed attempt,
-so anything not resolved within the one invocation is lost.
+seconds between passes. This matters most in automated contexts where
+nothing else will rerun the command for you on a failure.
+
+**Partial success.** If some files succeed and others still fail after
+retries, the run doesn't just fail outright — it also writes a manifest of
+just the failed files (`<manifest>.retry<ext>`, or `--retry-manifest-out`'s
+path if given) so you can rerun `mcdi download` against only those, instead
+of the whole original manifest. The exit code tells you which case you're
+in: `0` clean success, `3` partial success (some files missing, but at least
+one succeeded), `1` total failure (nothing usable was produced).
 
 Controlled-access GDC files need an auth token, obtained by logging into the
 GDC portal and downloading your token. Provide it either via the `GDC_TOKEN`
@@ -181,29 +210,14 @@ downloaded (verifying checksums too, if `--verify-checksum` is set), so
 interrupted runs can simply be re-run — the pre-flight check skips them too,
 so a rerun over mostly-complete output is cheap, not another full pass.
 
-## Runtime environment
+## License
 
-Both Galaxy tools (`manifest_gdc`, `manifest_downloader`) reference the same
-pinned container, `quay.io/goeckslab/mcdi:<version>` — there's no Conda
-package, so the container is the sole runtime. It's built from
-`cli_tools/mcdi/Dockerfile`, tagged from `mcdi/__init__.py`'s `__version__`,
-and built/pushed automatically by `.github/workflows/containers.yml` on
-merges to `main` that touch `cli_tools/mcdi/**`.
+See [LICENSE](LICENSE).
 
-```bash
-docker build -t mcdi:dev cli_tools/mcdi
-docker run --rm mcdi:dev mcdi manifest gdc --help
-docker run --rm mcdi:dev mcdi download --help
-```
-
-## Development
+## Contributing
 
 ```bash
 python -m pip install -e '.[dev]'
 pytest -q -m "not network"           # mocked; add `-m network` for live-API tests
 planemo lint tools/manifest_gdc tools/manifest_downloader
 ```
-
-## License
-
-See [LICENSE](LICENSE).

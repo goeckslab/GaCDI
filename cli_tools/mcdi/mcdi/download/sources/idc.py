@@ -13,7 +13,7 @@ from idc_index import IDCClient
 
 from ...errors import ApiError, InputError
 from ...net import build_session
-from .base import CANDIDATE_DELIMITERS, FileEntry, Source, read_header
+from .base import CANDIDATE_DELIMITERS, FileEntry, Source, read_header, write_csv_subset
 
 # Columns in an IDC cohort manifest (CSV/TSV): series-level (one row per
 # series) or BigQuery-export (one row per SOPInstanceUID, same columns).
@@ -166,6 +166,9 @@ class IDCSource(Source):
 
     def __init__(self, lookup: Optional[IdcIndexLookup] = None):
         self._lookup = lookup or IdcIndexLookup()
+        # file_id (S3 key) -> (series_uid, crdc_series_uuid), populated by parse_manifest;
+        # lets write_subset_manifest map a failed download back to its manifest row.
+        self._series_by_file_id: dict[str, tuple[str, str]] = {}
 
     @staticmethod
     def sniff(header_fields: list[str]) -> bool:
@@ -176,6 +179,7 @@ class IDCSource(Source):
         return any(_S5CMD_CP_RE.match(line.strip()) for line in lines)
 
     def parse_manifest(self, path: Path) -> list[FileEntry]:
+        self._series_by_file_id = {}
         column, ids = _extract_series_refs(path)
         if not ids:
             raise InputError(f"IDC manifest {path} contained no resolvable series references.")
@@ -205,7 +209,7 @@ class IDCSource(Source):
             Path("idc") / info.collection_id / info.patient_id / info.study_uid
             / f"{info.modality}_{info.series_uid}"
         )
-        return [
+        entries = [
             FileEntry(
                 file_id=key,
                 filename=key.rsplit("/", 1)[-1],
@@ -216,6 +220,9 @@ class IDCSource(Source):
             )
             for key, size in _list_series_objects(session, info.aws_bucket, info.crdc_series_uuid)
         ]
+        for entry in entries:
+            self._series_by_file_id[entry.file_id] = (info.series_uid, info.crdc_series_uuid)
+        return entries
 
     def request_kwargs(self, entry: FileEntry) -> dict:
         return {}
@@ -224,3 +231,34 @@ class IDCSource(Source):
         """Already confirmed to exist via the listing in ``parse_manifest`` - skip the
         redundant per-file probe in ``engine.check_access``."""
         return {e.file_id for e in entries}
+
+    def write_subset_manifest(
+        self, original_manifest: Path, failed_file_ids: set[str], output_path: Path
+    ) -> None:
+        """Map each failed file back to the series (manifest row) it came from - one
+        manifest row can expand into many files, so a failure pulls in the whole series.
+        Re-running the result is safe: files already on disk are skipped (see
+        ``engine._already_present``)."""
+        delimiter = _csv_delimiter(original_manifest)
+        if delimiter is not None:
+            series_uids = {
+                self._series_by_file_id[fid][0]
+                for fid in failed_file_ids
+                if fid in self._series_by_file_id
+            }
+            write_csv_subset(
+                original_manifest, output_path, delimiter=delimiter, key_column="SeriesInstanceUID",
+                keep_keys=series_uids,
+            )
+            return
+
+        crdc_uuids = {
+            self._series_by_file_id[fid][1]
+            for fid in failed_file_ids
+            if fid in self._series_by_file_id
+        }
+        with open(original_manifest) as fin, open(output_path, "w") as fout:
+            for raw in fin:
+                m = _S5CMD_CP_RE.match(raw.strip())
+                if m and m.group(1) in crdc_uuids:
+                    fout.write(raw)

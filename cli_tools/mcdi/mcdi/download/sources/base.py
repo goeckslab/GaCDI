@@ -28,6 +28,30 @@ def read_lines(path: Path, limit: int = CONTENT_SNIFF_LINES) -> list[str]:
         return [line for line, _ in zip(f, range(limit))]
 
 
+def write_csv_subset(
+    original_path: Path,
+    output_path: Path,
+    delimiter: str,
+    key_column: str,
+    keep_keys: set[str],
+) -> None:
+    """Re-parse ``original_path`` and write the rows whose ``key_column`` value is in
+    ``keep_keys`` to ``output_path``, preserving the original header/columns and delimiter.
+
+    Used to carve a re-parseable "retry manifest" out of a manifest a service already
+    produced, rather than reconstructing rows from the fields ``FileEntry`` retains
+    (which would risk dropping columns a service's format requires but mcdi doesn't use).
+    """
+    with open(original_path, newline="") as fin:
+        reader = csv.DictReader(fin, delimiter=delimiter)
+        fieldnames = reader.fieldnames or []
+        rows = [row for row in reader if (row.get(key_column) or "").strip() in keep_keys]
+    with open(output_path, "w", newline="") as fout:
+        writer = csv.DictWriter(fout, fieldnames=fieldnames, delimiter=delimiter)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 @dataclass
 class FileEntry:
     """A single file to download, normalized across manifest formats."""
@@ -62,6 +86,16 @@ class Source(ABC):
     @abstractmethod
     def request_kwargs(self, entry: FileEntry) -> dict:
         """Extra kwargs (e.g. headers) to pass to requests.get() for this entry."""
+
+    @abstractmethod
+    def write_subset_manifest(
+        self, original_manifest: Path, failed_file_ids: set[str], output_path: Path
+    ) -> None:
+        """Write a manifest at ``output_path``, in this source's own format, containing
+        only the rows for ``failed_file_ids`` (``FileEntry.file_id`` values) from
+        ``original_manifest`` — so a partial download failure can be retried by feeding
+        ``output_path`` straight back into ``mcdi download``.
+        """
 
     def rate_limit(self) -> Optional["RateLimit"]:
         """Optional pacing/rate-limit policy applied to downloads from this source."""

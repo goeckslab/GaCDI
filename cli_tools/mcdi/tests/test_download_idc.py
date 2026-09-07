@@ -252,3 +252,94 @@ def test_known_open_vouches_for_every_entry(tmp_path, requests_mock):
 
 def test_request_kwargs_is_empty():
     assert IDCSource().request_kwargs(entry=None) == {}
+
+
+# --- write_subset_manifest --------------------------------------------------------------
+
+
+def test_write_subset_manifest_csv_form_keeps_only_failed_series(tmp_path, requests_mock):
+    manifest = tmp_path / "cohort.csv"
+    manifest.write_text(
+        CSV_HEADER
+        + "pat1,coll,1.2.study.A,1.2.series.A,,,,gs://x\n"
+        + "pat2,coll,1.2.study.B,1.2.series.B,,,,gs://y\n"
+    )
+    _mock_listing(
+        requests_mock,
+        "idc-open-data",
+        {
+            SERIES_A.crdc_series_uuid: [([(f"{SERIES_A.crdc_series_uuid}/a.dcm", 10)], False)],
+            SERIES_B.crdc_series_uuid: [([(f"{SERIES_B.crdc_series_uuid}/b.dcm", 20)], False)],
+        },
+    )
+    lookup = FakeLookup({SERIES_A.series_uid: SERIES_A, SERIES_B.series_uid: SERIES_B})
+    source = IDCSource(lookup=lookup)
+    entries = source.parse_manifest(manifest)
+    failed_entry = next(e for e in entries if e.filename == "a.dcm")
+
+    output = tmp_path / "cohort.retry.csv"
+    source.write_subset_manifest(manifest, {failed_entry.file_id}, output)
+
+    text = output.read_text()
+    assert "1.2.series.A" in text
+    assert "1.2.series.B" not in text
+    assert text.splitlines()[0] == CSV_HEADER.strip()
+
+    # the subset manifest must itself be re-parseable by the same source
+    retried = source.parse_manifest(output)
+    assert {e.filename for e in retried} == {"a.dcm"}
+
+
+def test_write_subset_manifest_s5cmd_form_keeps_only_failed_series(tmp_path, requests_mock):
+    manifest = tmp_path / "m.s5cmd"
+    manifest.write_text(
+        f"cp s3://idc-open-data/{SERIES_A.crdc_series_uuid}/* .\n"
+        f"cp s3://idc-open-data/{SERIES_B.crdc_series_uuid}/* .\n"
+    )
+    _mock_listing(
+        requests_mock,
+        "idc-open-data",
+        {
+            SERIES_A.crdc_series_uuid: [([(f"{SERIES_A.crdc_series_uuid}/a.dcm", 10)], False)],
+            SERIES_B.crdc_series_uuid: [([(f"{SERIES_B.crdc_series_uuid}/b.dcm", 20)], False)],
+        },
+    )
+    lookup = FakeLookup({SERIES_A.crdc_series_uuid: SERIES_A, SERIES_B.crdc_series_uuid: SERIES_B})
+    source = IDCSource(lookup=lookup)
+    entries = source.parse_manifest(manifest)
+    failed_entry = next(e for e in entries if e.filename == "b.dcm")
+
+    output = tmp_path / "m.retry.s5cmd"
+    source.write_subset_manifest(manifest, {failed_entry.file_id}, output)
+
+    lines = output.read_text().splitlines()
+    assert lines == [f"cp s3://idc-open-data/{SERIES_B.crdc_series_uuid}/* ."]
+
+    retried = source.parse_manifest(output)
+    assert {e.filename for e in retried} == {"b.dcm"}
+
+
+def test_write_subset_manifest_keeps_whole_series_when_one_file_of_many_fails(tmp_path, requests_mock):
+    manifest = tmp_path / "m.s5cmd"
+    manifest.write_text(f"cp s3://idc-open-data/{SERIES_A.crdc_series_uuid}/* .\n")
+    _mock_listing(
+        requests_mock,
+        "idc-open-data",
+        {
+            SERIES_A.crdc_series_uuid: [
+                ([(f"{SERIES_A.crdc_series_uuid}/a.dcm", 10), (f"{SERIES_A.crdc_series_uuid}/b.dcm", 20)], False)
+            ],
+        },
+    )
+    lookup = FakeLookup({SERIES_A.crdc_series_uuid: SERIES_A})
+    source = IDCSource(lookup=lookup)
+    entries = source.parse_manifest(manifest)
+    failed_entry = next(e for e in entries if e.filename == "a.dcm")
+
+    output = tmp_path / "m.retry.s5cmd"
+    source.write_subset_manifest(manifest, {failed_entry.file_id}, output)
+
+    # Manifest granularity is per-series, not per-file: the whole series comes
+    # back even though only one of its two files failed.
+    lines = output.read_text().splitlines()
+    assert lines == [f"cp s3://idc-open-data/{SERIES_A.crdc_series_uuid}/* ."]
