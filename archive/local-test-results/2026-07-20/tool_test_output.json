@@ -1,0 +1,133 @@
+{
+    "exit_code": null,
+    "summary": {
+        "num_errors": 0,
+        "num_failures": 0,
+        "num_skips": 0,
+        "num_tests": 1
+    },
+    "tests": [
+        {
+            "data": {
+                "end_datetime": null,
+                "execution_problem": null,
+                "inputs": {
+                    "manifest_file": {
+                        "id": "f9a52c72605e76cc",
+                        "src": "hda"
+                    }
+                },
+                "invocation_details": null,
+                "job": {
+                    "command_line": "mkdir -p ./downloads && gacdi-download --manifest '/private/var/folders/bb/2gbxt_7937z_n7vbh11q1n_c002np4/T/tmpm6evemff/files/5/6/3/dataset_56306420-234e-4fea-ac2c-c874898b025e.dat' --outdir ./downloads",
+                    "command_version": null,
+                    "copied_from_job_id": null,
+                    "create_time": "2026-07-20T20:43:10.544860",
+                    "dependencies": [],
+                    "exit_code": 0,
+                    "external_id": "47264",
+                    "galaxy_version": "26.0",
+                    "handler": null,
+                    "history_id": "f9a52c72605e76cc",
+                    "id": "04fd97ba59ffe626",
+                    "inputs": {
+                        "manifest_file": {
+                            "id": "f9a52c72605e76cc",
+                            "src": "hda",
+                            "uuid": "56306420-234e-4fea-ac2c-c874898b025e"
+                        }
+                    },
+                    "job_messages": [],
+                    "job_metrics": [
+                        {
+                            "name": "container_id",
+                            "plugin": "core",
+                            "raw_value": "quay.io/goeckslab/gacdi-downloader:0.2.0",
+                            "title": "Container ID",
+                            "value": "quay.io/goeckslab/gacdi-downloader:0.2.0"
+                        },
+                        {
+                            "name": "container_type",
+                            "plugin": "core",
+                            "raw_value": "docker",
+                            "title": "Container Type",
+                            "value": "docker"
+                        },
+                        {
+                            "name": "galaxy_slots",
+                            "plugin": "core",
+                            "raw_value": "1.0000000",
+                            "title": "Cores Allocated",
+                            "value": "1"
+                        },
+                        {
+                            "name": "start_epoch",
+                            "plugin": "core",
+                            "raw_value": "1784580191.0000000",
+                            "title": "Job Start Time",
+                            "value": "2026-07-20 16:43:11"
+                        },
+                        {
+                            "name": "end_epoch",
+                            "plugin": "core",
+                            "raw_value": "1784580232.0000000",
+                            "title": "Job End Time",
+                            "value": "2026-07-20 16:43:52"
+                        },
+                        {
+                            "name": "runtime_seconds",
+                            "plugin": "core",
+                            "raw_value": "41.0000000",
+                            "title": "Job Runtime (Wall Clock)",
+                            "value": "41 seconds"
+                        }
+                    ],
+                    "job_runner_name": null,
+                    "job_stderr": "",
+                    "job_stdout": "",
+                    "model_class": "Job",
+                    "output_collections": {
+                        "commons_files": {
+                            "id": "f9a52c72605e76cc",
+                            "src": "hdca"
+                        }
+                    },
+                    "outputs": {
+                        "__new_primary_file_commons_files|TCGA-E2-A15K-11A-01-TS1.28656e31-f16f-431e-95d4-915892ecdff8__": {
+                            "id": "04fd97ba59ffe626",
+                            "src": "hda",
+                            "uuid": "4425aa68-d859-4e1e-8c55-bf5b332c5c9e"
+                        }
+                    },
+                    "params": {
+                        "__input_ext": "\"input\"",
+                        "chromInfo": "\"/private/var/folders/bb/2gbxt_7937z_n7vbh11q1n_c002np4/T/tmpm6evemff/galaxy-dev/tool-data/shared/ucsc/chrom/?.len\"",
+                        "dbkey": "\"?\""
+                    },
+                    "state": "ok",
+                    "stderr": "WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested\nINFO gacdi_manifest.download: gacdi-download 0.2.0+local\nINFO gacdi_manifest.download: Detected GDC manifest.\nINFO gacdi_manifest.download.gdc: Starting gdc-client download.\n",
+                    "stdout": "  0% [                                              ] ETA:  --:--:--   0.0 s/B\n  2% [#                                           ] ETA:   0:02:21 293.2 KiB/s\n  4% [##                                          ] ETA:   0:01:13 551.2 KiB/s\n  7% [###                                         ] ETA:   0:00:49 795.0 KiB/s\n  9% [####                                        ] ETA:   0:00:37   1.0 MiB/s\n 12% [#####                                       ] ETA:   0:00:30   1.2 MiB/s\n 14% [######                                      ] ETA:   0:00:30   1.2 MiB/s\n 17% [#######                                     ] ETA:   0:00:26   1.3 MiB/s\n 22% [#########                                   ] ETA:   0:00:20   1.6 MiB/s\n 24% [##########                                  ] ETA:   0:00:18   1.7 MiB/s\n 26% [###########                                 ] ETA:   0:00:16   1.9 MiB/s\n 29% [############                                ] ETA:   0:00:14   2.0 MiB/s\n 31% [#############                               ] ETA:   0:00:15   1.8 MiB/s\n 34% [###############                             ] ETA:   0:00:14   1.9 MiB/s\n 34% [###############                             ] ETA:   0:00:14   1.8 MiB/s\n 37% [################                            ] ETA:   0:00:13   1.9 MiB/s\n 39% [#################                           ] ETA:   0:00:14   1.7 MiB/s\n 41% [##################                          ] ETA:   0:00:13   1.8 MiB/s\n 44% [###################                         ] ETA:   0:00:13   1.8 MiB/s\n 44% [###################                         ] ETA:   0:00:13   1.7 MiB/s\n 47% [####################                        ] ETA:   0:00:12   1.8 MiB/s\n 49% [#####################                       ] ETA:   0:00:11   1.8 MiB/s\n 50% [######################                      ] ETA:   0:00:11   1.8 MiB/s\n 52% [#######################                     ] ETA:   0:00:10   1.8 MiB/s\n 54% [########################                    ] ETA:   0:00:10   1.8 MiB/s\n 57% [#########################                   ] ETA:   0:00:09   1.8 MiB/s\n 59% [##########################                  ] ETA:   0:00:09   1.8 MiB/s\n 62% [###########################                 ] ETA:   0:00:08   1.8 MiB/s\n 64% [############################                ] ETA:   0:00:07   1.9 MiB/s\n 69% [##############################              ] ETA:   0:00:06   2.0 MiB/s\n 72% [###############################             ] ETA:   0:00:05   2.0 MiB/s\n 79% [##################################          ] ETA:   0:00:03   2.2 MiB/s\n 81% [###################################         ] ETA:   0:00:03   2.2 MiB/s\n 84% [#####################################       ] ETA:   0:00:02   2.3 MiB/s\n 91% [########################################    ] ETA:   0:00:01   2.4 MiB/s\n 96% [##########################################  ] ETA:   0:00:00   2.5 MiB/s\n100% [############################################] Time:  0:00:16   2.6 MiB/s\n\u001b[32mSuccessfully downloaded\u001b[0m: 1\n",
+                    "tool_id": "gacdi_downloader",
+                    "tool_stderr": "WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested\nINFO gacdi_manifest.download: gacdi-download 0.2.0+local\nINFO gacdi_manifest.download: Detected GDC manifest.\nINFO gacdi_manifest.download.gdc: Starting gdc-client download.\n",
+                    "tool_stdout": "  0% [                                              ] ETA:  --:--:--   0.0 s/B\n  2% [#                                           ] ETA:   0:02:21 293.2 KiB/s\n  4% [##                                          ] ETA:   0:01:13 551.2 KiB/s\n  7% [###                                         ] ETA:   0:00:49 795.0 KiB/s\n  9% [####                                        ] ETA:   0:00:37   1.0 MiB/s\n 12% [#####                                       ] ETA:   0:00:30   1.2 MiB/s\n 14% [######                                      ] ETA:   0:00:30   1.2 MiB/s\n 17% [#######                                     ] ETA:   0:00:26   1.3 MiB/s\n 22% [#########                                   ] ETA:   0:00:20   1.6 MiB/s\n 24% [##########                                  ] ETA:   0:00:18   1.7 MiB/s\n 26% [###########                                 ] ETA:   0:00:16   1.9 MiB/s\n 29% [############                                ] ETA:   0:00:14   2.0 MiB/s\n 31% [#############                               ] ETA:   0:00:15   1.8 MiB/s\n 34% [###############                             ] ETA:   0:00:14   1.9 MiB/s\n 34% [###############                             ] ETA:   0:00:14   1.8 MiB/s\n 37% [################                            ] ETA:   0:00:13   1.9 MiB/s\n 39% [#################                           ] ETA:   0:00:14   1.7 MiB/s\n 41% [##################                          ] ETA:   0:00:13   1.8 MiB/s\n 44% [###################                         ] ETA:   0:00:13   1.8 MiB/s\n 44% [###################                         ] ETA:   0:00:13   1.7 MiB/s\n 47% [####################                        ] ETA:   0:00:12   1.8 MiB/s\n 49% [#####################                       ] ETA:   0:00:11   1.8 MiB/s\n 50% [######################                      ] ETA:   0:00:11   1.8 MiB/s\n 52% [#######################                     ] ETA:   0:00:10   1.8 MiB/s\n 54% [########################                    ] ETA:   0:00:10   1.8 MiB/s\n 57% [#########################                   ] ETA:   0:00:09   1.8 MiB/s\n 59% [##########################                  ] ETA:   0:00:09   1.8 MiB/s\n 62% [###########################                 ] ETA:   0:00:08   1.8 MiB/s\n 64% [############################                ] ETA:   0:00:07   1.9 MiB/s\n 69% [##############################              ] ETA:   0:00:06   2.0 MiB/s\n 72% [###############################             ] ETA:   0:00:05   2.0 MiB/s\n 79% [##################################          ] ETA:   0:00:03   2.2 MiB/s\n 81% [###################################         ] ETA:   0:00:03   2.2 MiB/s\n 84% [#####################################       ] ETA:   0:00:02   2.3 MiB/s\n 91% [########################################    ] ETA:   0:00:01   2.4 MiB/s\n 96% [##########################################  ] ETA:   0:00:00   2.5 MiB/s\n100% [############################################] Time:  0:00:16   2.6 MiB/s\n\u001b[32mSuccessfully downloaded\u001b[0m: 1\n",
+                    "update_time": "2026-07-20T20:43:52.979319",
+                    "user_email": "planemo@galaxyproject.org",
+                    "user_id": "f9a52c72605e76cc"
+                },
+                "output_problems": null,
+                "problem_log": null,
+                "start_datetime": null,
+                "status": "success",
+                "test_index": 0,
+                "time_seconds": 49.90017485618591,
+                "tool_id": "gacdi_downloader",
+                "tool_version": "0.2.0+galaxy0"
+            },
+            "doc": null,
+            "has_data": true,
+            "id": "gacdi_downloader-0",
+            "test_type": null
+        }
+    ],
+    "version": "0.1"
+}

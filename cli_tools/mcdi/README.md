@@ -196,6 +196,41 @@ docker run --rm mcdi:dev mcdi manifest gdc --help
 docker run --rm mcdi:dev mcdi download --help
 ```
 
+### Building behind a TLS-inspecting proxy
+
+If HTTPS traffic passes through an institutional or corporate proxy, its
+self-signed root CA must be trusted inside the container. Supply the
+PEM-encoded CA certificate (or an existing PEM CA bundle) as a BuildKit secret
+when building:
+
+```bash
+MCDI_CA_CERT=/absolute/path/to/organization-root-ca.crt
+docker build \
+  --secret id=mcdi_ca_cert,src="$MCDI_CA_CERT" \
+  --build-arg MCDI_CA_CERT_SHA256="$(openssl dgst -sha256 -r "$MCDI_CA_CERT" | cut -d ' ' -f 1)" \
+  -t quay.io/goeckslab/mcdi:0.5.0 \
+  .
+```
+
+The Dockerfile installs that CA into Debian's system trust store and configures
+both Python's TLS layer and `requests` to use the resulting combined bundle.
+The certificate becomes part of the final image, while the secret input stays
+out of the build context and no extra copy lands under `/app`. Use the CA
+certificate that issued the proxy's certificates (normally the organization's
+root CA), not the certificate for `idc-open-data.s3.amazonaws.com` itself. The
+SHA-256 build argument safely invalidates Docker's cache when the certificate
+changes; the build fails if it does not match the supplied file.
+
+To confirm the resulting image can establish the same connection that IDC
+downloads use:
+
+```bash
+docker run --rm quay.io/goeckslab/mcdi:0.5.0 \
+  python -c 'import requests; r = requests.get("https://idc-open-data.s3.amazonaws.com", timeout=30); print(r.status_code)'
+```
+
+Omit `--secret` for ordinary builds that do not require a private CA.
+
 ## Development
 
 ```bash

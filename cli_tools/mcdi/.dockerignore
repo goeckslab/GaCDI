@@ -1,0 +1,11 @@
+.git
+.pytest_cache
+**/__pycache__
+*.py[cod]
+.venv
+
+# Supply local CA certificates through Docker's build-secret mechanism. This
+# prevents an accidentally copied certificate from also landing under /app.
+*.cer
+*.crt
+*.pem
