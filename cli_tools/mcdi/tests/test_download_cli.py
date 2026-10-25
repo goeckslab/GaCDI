@@ -212,6 +212,76 @@ def test_extract_flag_unpacks_archive(tmp_path, requests_mock):
     assert requests_mock.call_count == 3  # 1 known_open + 1 pre-flight probe + 1 download, first run only
 
 
+def test_partial_failure_writes_retry_manifest(tmp_path, requests_mock):
+    """A file that passes the pre-flight probe but fails the real download (e.g. it
+    went unreachable in between) should land in a retry manifest alongside the ones
+    that succeeded - not silently lost."""
+    _mock_known_open_empty(requests_mock)
+    manifest = tmp_path / "gdc_manifest.txt"
+    _write_gdc_manifest(manifest, [
+        ("uuid1", "a.txt", _md5(FILE_A), len(FILE_A)),
+        ("uuid2", "b.txt", _md5(FILE_B), len(FILE_B)),
+    ])
+    requests_mock.get("https://api.gdc.cancer.gov/data/uuid1", content=FILE_A)
+    # uuid2: pre-flight ranged probe (sends "Range") succeeds; the real download
+    # (no "Range" header) fails - simulating the file going unreachable mid-run.
+    requests_mock.get("https://api.gdc.cancer.gov/data/uuid2", status_code=404)
+    requests_mock.get(
+        "https://api.gdc.cancer.gov/data/uuid2",
+        request_headers={"Range": "bytes=0-0"},
+        status_code=206, content=b"",
+    )
+
+    output_dir = tmp_path / "out"
+    rc = main([
+        "download",
+        "--manifest", str(manifest),
+        "--output-dir", str(output_dir),
+        "--retries", "0",
+    ])
+    assert rc == 3  # partial success: some files missing, but not all
+    assert (output_dir / "gdc" / "uuid1" / "a.txt").read_bytes() == FILE_A
+
+    retry_manifest = tmp_path / "gdc_manifest.retry.txt"
+    assert retry_manifest.exists()
+    lines = retry_manifest.read_text().splitlines()
+    assert len(lines) == 2  # header + the one failed row
+    assert lines[1].startswith("uuid2\t")
+
+    # the retry manifest can itself be fed straight back into `mcdi download`
+    requests_mock.get("https://api.gdc.cancer.gov/data/uuid2", content=FILE_B)
+    rc_retry = main([
+        "download",
+        "--manifest", str(retry_manifest),
+        "--output-dir", str(output_dir),
+    ])
+    assert rc_retry == 0
+    assert (output_dir / "gdc" / "uuid2" / "b.txt").read_bytes() == FILE_B
+
+
+def test_full_failure_does_not_write_retry_manifest(tmp_path, requests_mock):
+    """If every file fails, the original manifest already *is* the retry manifest -
+    no need to write a redundant copy."""
+    _mock_known_open_empty(requests_mock)
+    manifest = tmp_path / "gdc_manifest.txt"
+    _write_gdc_manifest(manifest, [("uuid1", "a.txt", _md5(FILE_A), len(FILE_A))])
+    requests_mock.get("https://api.gdc.cancer.gov/data/uuid1", status_code=404)
+    requests_mock.get(
+        "https://api.gdc.cancer.gov/data/uuid1",
+        request_headers={"Range": "bytes=0-0"},
+        status_code=206, content=b"",
+    )
+
+    rc = main([
+        "download",
+        "--manifest", str(manifest),
+        "--output-dir", str(tmp_path / "out"),
+        "--retries", "0",
+    ])
+    assert rc == 1
+    assert not (tmp_path / "gdc_manifest.retry.txt").exists()
+
+
 def test_extract_failure_leaves_archive_in_place(tmp_path, requests_mock):
     _mock_known_open_empty(requests_mock)
     # Named like a tar.gz but not actually one - extraction must fail cleanly.
@@ -227,7 +297,9 @@ def test_extract_failure_leaves_archive_in_place(tmp_path, requests_mock):
         "--output-dir", str(output_dir),
         "--extract",
     ])
-    assert rc == 1  # extraction errors are reported as a run failure
+    # extraction errors are reported as a partial failure - the download itself
+    # succeeded and the archive is still present, just not unpacked
+    assert rc == 3
 
     dest_dir = output_dir / "gdc" / "uuid1"
     # the archive was NOT moved aside, since extraction never succeeded

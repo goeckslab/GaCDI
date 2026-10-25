@@ -56,6 +56,13 @@ def add_arguments(subparsers: argparse._SubParsersAction) -> argparse.ArgumentPa
         "--retry-backoff", type=float, default=5.0,
         help="Seconds to wait before each retry pass, multiplied by the attempt number (default: 5.0)",
     )
+    parser.add_argument(
+        "--retry-manifest-out", type=Path,
+        help="Where to write the retry manifest on a partial failure (default: "
+             "'<manifest>.retry<ext>', next to --manifest). Only written if some but not all files "
+             "failed; use this to redirect it somewhere writable when --manifest's own directory "
+             "isn't (e.g. a Galaxy job's staged input).",
+    )
     parser.add_argument("--verbose", action="store_true")
     parser.set_defaults(func=run)
     return parser
@@ -113,4 +120,19 @@ def run(args: argparse.Namespace) -> int:
         f"\nDone: {len(results)} total, {len(failed)} error(s), "
         f"{len(mismatches)} checksum mismatch(es), {len(extract_failed)} extraction error(s)"
     )
-    return 1 if failed or mismatches or extract_failed else 0
+
+    retry_ids = {r.entry.file_id for r in failed + mismatches}
+    partial = 0 < len(retry_ids) < len(results)
+    if partial:
+        retry_manifest = args.retry_manifest_out or args.manifest.with_name(
+            args.manifest.stem + ".retry" + args.manifest.suffix
+        )
+        source.write_subset_manifest(args.manifest, retry_ids, retry_manifest)
+        print(f"Wrote retry manifest for {len(retry_ids)} failed file(s) to {retry_manifest}")
+
+    if not (failed or mismatches or extract_failed):
+        return 0
+    # Some but not all files ended up missing/wrong (or all downloaded but some failed to
+    # extract): outputs exist but are incomplete. Distinct from 1 (nothing usable at all) so
+    # callers - e.g. the Galaxy wrapper's <stdio> exit-code mapping - can tell the two apart.
+    return 3 if len(retry_ids) < len(results) else 1

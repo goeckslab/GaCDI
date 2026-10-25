@@ -6,7 +6,7 @@
 
 import os
 
-__version__ = "0.5.0"
+__version__ = "0.7.0"
 
 # Container image build id (e.g. git SHA); empty for local/editable installs.
 BUILD = os.environ.get("MCDI_BUILD", "").strip()

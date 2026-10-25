@@ -6,6 +6,67 @@ on:
   pull_request:
 
 jobs:
+  check-version-bump:
+    name: Check mcdi version bump
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if cli_tools/mcdi changed
+        id: changed
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- cli_tools/mcdi | grep -q .; then
+            echo "mcdi_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mcdi_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read version from package __init__.py
+        if: steps.changed.outputs.mcdi_changed == 'true'
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^__version__' cli_tools/mcdi/mcdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.changed.outputs.mcdi_changed == 'true'
+
+      - name: Fail if version tag already exists on Quay
+        if: steps.changed.outputs.mcdi_changed == 'true'
+        run: |
+          IMAGE_REF="quay.io/goeckslab/mcdi:${{ steps.version.outputs.version }}"
+          if docker buildx imagetools inspect "$IMAGE_REF" >/dev/null 2>&1; then
+            echo "cli_tools/mcdi changed but version ${{ steps.version.outputs.version }} is already published at $IMAGE_REF." >&2
+            echo "Bump __version__ in mcdi/__init__.py before merging." >&2
+            exit 1
+          fi
+
+  check-tool-version-match:
+    name: Check Galaxy tool versions match mcdi package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify @TOOL_VERSION@ tokens match mcdi package version
+        run: |
+          MCDI_VERSION=$(grep -m1 '^__version__' cli_tools/mcdi/mcdi/__init__.py | sed -E 's/__version__ = "(.*)"/\1/')
+          echo "mcdi package version: $MCDI_VERSION"
+          fail=0
+          for f in tools/*/macros.xml; do
+            TOOL_VERSION=$(grep -oP '(?<=<token name="@TOOL_VERSION@">)[^<]+' "$f" || true)
+            [ -z "$TOOL_VERSION" ] && continue
+            echo "$f: @TOOL_VERSION@ = $TOOL_VERSION"
+            if [ "$TOOL_VERSION" != "$MCDI_VERSION" ]; then
+              echo "::error file=$f::@TOOL_VERSION@ ($TOOL_VERSION) does not match mcdi package version ($MCDI_VERSION)"
+              fail=1
+            fi
+          done
+          exit $fail
+
   pytest:
     name: Unit tests (mcdi)
     runs-on: ubuntu-latest

@@ -17,14 +17,10 @@ GRAPHQL_URL = "https://pdc.cancer.gov/graphql"
 STUDY_ID = "PDC000109"
 SAMPLE_FILE_COUNT = 2
 
-# `filesPerStudy` is the same query the PDC portal's Explore page uses to
-# resolve each file's CloudFront `signedUrl`. It isn't in PDC's published
-# API docs (found via GraphQL suggestion errors: `filesPerStudy(pdc_study_id)
-# { signedUrl { url } }`), but it's a live query against the same public,
-# tokenless GraphQL endpoint the portal itself calls, not a private one.
+# https://pdc-docs.cancer.gov/pdc/publicapi-documentation#!/Files/filesPerStudy
 FILES_PER_STUDY_QUERY = """
 query FilesPerStudy($studyId: String!) {
-  filesPerStudy(pdc_study_id: $studyId) {
+  filesPerStudy(pdc_study_id: $studyId, offset: 0, limit: 100) {
     file_id
     file_name
     file_size
@@ -53,11 +49,9 @@ def _fetch_sample_files() -> list[dict]:
     )
     resp.raise_for_status()
     payload = resp.json()
-    if "errors" in payload:
-        pytest.skip(f"PDC GraphQL API returned errors: {payload['errors']}")
+    assert "errors" not in payload, payload.get("errors")
     files = payload["data"]["filesPerStudy"]
-    if not files:
-        pytest.skip(f"PDC study {STUDY_ID} returned no files")
+    assert files, f"PDC study {STUDY_ID} returned no files"
     return sorted(files, key=lambda f: int(f["file_size"]))[:SAMPLE_FILE_COUNT]
 
 
